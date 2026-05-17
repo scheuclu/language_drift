@@ -30,7 +30,7 @@ Measure how English language usage shifts over time by training word embeddings 
 
 **1C — Encode to IDs** (per year, depends on 1B)
 - Read tokenized text files, map words to vocab IDs
-- Save as memory-mapped numpy int32 arrays
+- Save as numpy int32 arrays (each ~4GB, loaded fully into RAM for training — feasible with 128GB)
 
 ### Stage 2: PyTorch Word2Vec Training (per year, on DGX Spark GPU)
 
@@ -41,6 +41,8 @@ Measure how English language usage shifts over time by training word embeddings 
 - Noise distribution: unigram^(3/4) for negative sampling
 - Sparse embeddings + `SparseAdam` optimizer
 - Fixed seed (42) + deterministic CUDA for reproducibility
+
+**Data loading:** Load the full token ID array into RAM (~4GB per year, 128GB available). Use a map-style `Dataset` with random-access indexing instead of `IterableDataset`. This enables proper shuffling and fast multi-worker `DataLoader` with no I/O bottleneck.
 
 **Output:** Save `center_embeddings.weight` as numpy array per year (~1-3 hours per year).
 
@@ -85,7 +87,7 @@ language_drift/
 
   training/                      # Stage 2: Training
     word2vec.py                  # PyTorch SGNS model
-    dataset.py                   # IterableDataset for skip-gram pairs
+    dataset.py                   # Map-style Dataset for skip-gram pairs (in-RAM)
     train.py                     # Training loop (GPU, LR decay, save)
 
   analysis/                      # Stage 3: Alignment & Drift
@@ -121,7 +123,8 @@ language_drift/
 
 - **Disk:** ~100 GB total (90 GB data, 6 GB models)
 - **Training time:** ~1-3 hours per year on DGX Spark, ~13-39 hours total
-- **GPU memory:** minimal (~480 MB for model), bottleneck is data loading
+- **RAM:** ~4 GB per year loaded into memory during training (128 GB available)
+- **GPU memory:** minimal (~480 MB for model)
 
 ## Verification
 
