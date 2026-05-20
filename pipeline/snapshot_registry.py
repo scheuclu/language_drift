@@ -60,7 +60,7 @@ YEAR_TO_SNAPSHOTS: dict[int, list[str]] = {
     ],
     2025: [
         "CC-MAIN-2025-05", "CC-MAIN-2025-08", "CC-MAIN-2025-13",
-        "CC-MAIN-2025-18", "CC-MAIN-2025-22", "CC-MAIN-2025-26",
+        "CC-MAIN-2025-18", "CC-MAIN-2025-21", "CC-MAIN-2025-26",
     ],
 }
 
