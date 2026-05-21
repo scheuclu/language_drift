@@ -6,8 +6,8 @@ import torch.nn.functional as F
 class Word2VecSGNS(nn.Module):
     def __init__(self, vocab_size: int, embedding_dim: int):
         super().__init__()
-        self.center_embeddings = nn.Embedding(vocab_size, embedding_dim, sparse=True)
-        self.context_embeddings = nn.Embedding(vocab_size, embedding_dim, sparse=True)
+        self.center_embeddings = nn.Embedding(vocab_size, embedding_dim)
+        self.context_embeddings = nn.Embedding(vocab_size, embedding_dim)
 
         init_range = 0.5 / embedding_dim
         self.center_embeddings.weight.data.uniform_(-init_range, init_range)

@@ -65,13 +65,15 @@ def train_year(year: int, device: str = "cuda") -> None:
         dataset,
         batch_size=BATCH_SIZE,
         shuffle=True,
-        num_workers=4,
+        num_workers=16,
         pin_memory=True,
         drop_last=True,
+        prefetch_factor=4,
+        persistent_workers=True,
     )
 
     model = Word2VecSGNS(vocab_size, EMBEDDING_DIM).to(device)
-    optimizer = torch.optim.SparseAdam(model.parameters(), lr=LEARNING_RATE)
+    optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
     total_batches = len(loader) * NUM_EPOCHS
 
