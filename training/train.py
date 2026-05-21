@@ -3,7 +3,6 @@ import random
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
 
 from config import (
     BATCH_SIZE,
@@ -19,7 +18,7 @@ from config import (
     WINDOW_SIZE,
 )
 from pipeline.vocab import load_vocab
-from training.dataset import SkipGramDataset
+from training.dataset import GPUSkipGramSampler
 from training.word2vec import Word2VecSGNS
 
 
@@ -49,8 +48,8 @@ def train_year(year: int, device: str = "cuda") -> None:
     token_ids = np.load(token_ids_path)
     print(f"  {len(token_ids):,} tokens loaded into RAM")
 
-    print("Building dataset (subsampling + noise table)...")
-    dataset = SkipGramDataset(
+    print("Building GPU sampler (subsampling + noise table)...")
+    sampler = GPUSkipGramSampler(
         token_ids=token_ids,
         vocab_size=vocab_size,
         window_size=WINDOW_SIZE,
@@ -58,52 +57,40 @@ def train_year(year: int, device: str = "cuda") -> None:
         word_freqs=word_freqs,
         id_to_word=id_to_word,
         subsample_threshold=SUBSAMPLING_THRESHOLD,
+        device=device,
+        seed=SEED,
     )
-    print(f"  {len(dataset):,} tokens after subsampling")
-
-    loader = DataLoader(
-        dataset,
-        batch_size=BATCH_SIZE,
-        shuffle=True,
-        num_workers=16,
-        pin_memory=True,
-        drop_last=True,
-        prefetch_factor=4,
-        persistent_workers=True,
-    )
+    print(f"  {len(sampler):,} tokens after subsampling")
+    del token_ids
 
     model = Word2VecSGNS(vocab_size, EMBEDDING_DIM).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    total_batches = len(loader) * NUM_EPOCHS
+    steps_per_epoch = len(sampler) // BATCH_SIZE
+    total_batches = steps_per_epoch * NUM_EPOCHS
 
     print(f"Training year {year}: {total_batches:,} batches, device={device}")
 
-    global_step = 0
-    for epoch in range(NUM_EPOCHS):
-        running_loss = 0.0
-        for batch_idx, (center, context, negatives) in enumerate(loader):
-            lr = LEARNING_RATE * (1 - global_step / total_batches)
-            lr = max(lr, 1e-4)
-            for pg in optimizer.param_groups:
-                pg["lr"] = lr
+    running_loss = torch.zeros((), device=device)
+    for global_step in range(1, total_batches + 1):
+        lr = LEARNING_RATE * (1 - (global_step - 1) / total_batches)
+        lr = max(lr, 1e-4)
+        for pg in optimizer.param_groups:
+            pg["lr"] = lr
 
-            center = center.to(device)
-            context = context.to(device)
-            negatives = negatives.to(device)
+        center, context, negatives = sampler.sample_batch(BATCH_SIZE)
 
-            loss = model(center, context, negatives)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+        loss = model(center, context, negatives)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
-            running_loss += loss.item()
-            global_step += 1
+        running_loss += loss.detach()
 
-            if global_step % 10_000 == 0:
-                avg_loss = running_loss / 10_000
-                print(f"  Step {global_step:>8,} / {total_batches:,} | Loss {avg_loss:.4f} | LR {lr:.6f}")
-                running_loss = 0.0
+        if global_step % 10_000 == 0:
+            avg_loss = (running_loss / 10_000).item()
+            print(f"  Step {global_step:>8,} / {total_batches:,} | Loss {avg_loss:.4f} | LR {lr:.6f}")
+            running_loss.zero_()
 
     EMBEDDINGS_DIR.mkdir(parents=True, exist_ok=True)
     embeddings = model.center_embeddings.weight.detach().cpu().numpy()
