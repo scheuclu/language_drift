@@ -1,9 +1,7 @@
 {
-  "experimentalServices": {
-    "words": {
-      "root": "public/data/words",
-      "routePrefix": "/",
-      "framework": "sanity"
-    }
-  }
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "installCommand": "npm install --include=dev --ignore-scripts",
+  "outputDirectory": ".next"
 }
