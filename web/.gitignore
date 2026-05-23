@@ -17,8 +17,9 @@
 /.next/
 /out/
 
-# precomputed data shards (regenerate via scripts/precompute_*.py)
-/public/data/
+# precomputed data shards are NOT ignored — they're committed so Vercel's
+# Git integration can ship them. Regenerate via scripts/precompute_*.py
+# after retraining and commit the new snapshot.
 
 # dev server log
 dev.log

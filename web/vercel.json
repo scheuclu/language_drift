@@ -1,0 +1,9 @@
+{
+  "experimentalServices": {
+    "words": {
+      "root": "public/data/words",
+      "routePrefix": "/",
+      "framework": "sanity"
+    }
+  }
+}
