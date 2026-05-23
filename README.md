@@ -1,19 +1,87 @@
 # Language Drift
 
-Measure how English language usage shifts over time by training word embeddings on yearly slices of web text (2013–2025) and tracking how word meanings change.
+**[→ Live demo: language-drift.vercel.app](https://language-drift.vercel.app)**
 
-## How It Works
+Thirteen separate Word2Vec models — one per year, 2013 through 2025, trained on a billion tokens of Common Crawl each — aligned into a shared coordinate system so the same word has 13 comparable positions. The result is a quantitative, interactive view of how English usage actually changed over the last decade.
 
-1. **Stream** ~1 billion tokens per year from [FineWeb](https://huggingface.co/datasets/HuggingFaceFW/fineweb) (a cleaned English web corpus derived from Common Crawl)
-2. **Tokenize** text (lowercase, strip URLs/HTML/emojis, filter short and numeric tokens)
-3. **Build a shared vocabulary** across all years (~150–200K words that appear consistently)
-4. **Train Word2Vec embeddings** (Skip-gram + Negative Sampling) independently per year using PyTorch on GPU
-5. **Align** embedding spaces via Orthogonal Procrustes so vectors are comparable across years
-6. **Measure drift** — cosine distance per word across years reveals semantic and cultural shifts
+`PyTorch · Word2Vec (SGNS) · Orthogonal Procrustes · UMAP · Next.js · Three.js · D3 · Framer Motion`
 
-## Setup
+![Language Drift — landing](docs/img/landing.png)
 
-Requires Python 3.13+ and [uv](https://docs.astral.sh/uv/).
+## What you can do with it
+
+| | |
+|---|---|
+| ![explore](docs/img/explore.png) | **`/explore` — constellation view.** Pick a word; scroll to scrub through the years. Watch a word's nearest neighbors fly in and out as its meaning shifts. Click any neighbor to dive into it. |
+| ![ternary](docs/img/ternary.png) | **`/ternary` — three-pole projection.** Pick three anchor words (e.g. `halloween`, `virus`, `cloth`) and a target (`mask`). Each year's barycentric position is the target's cosine similarity to each anchor, projected into the triangle. The COVID arc is dead-obvious. |
+| ![space](docs/img/space.png) | **`/space` — 3D embedding cloud.** All 19,663 vocabulary words projected to 3D via UMAP, jointly across all years. Hit play and the cloud breathes between 2013 and 2025 as each word interpolates along its 13-year path. Mark words to follow them through the cloud. |
+
+## Findings
+
+The pipeline gives a noise floor (stable words drift ~0.10 per year-pair under Procrustes alignment) and a signal ceiling (real neologisms shift 5–10× harder). A few examples, total cosine drift summed across 12 year-pairs:
+
+| Word | Total drift | What changed |
+|---|---|---|
+| `nft` | **11.19** | Pre-2020: barely exists in the corpus. 2021+: cluster centered on art, blockchain, scam. |
+| `crypto` | **9.33** | "Cryptography → currency" in five years. |
+| `lockdown` | **8.59** | From "prison protocol" to "everyday word." |
+| `mask` | **4.33** | A disguise (halloween, costume) → a cloth covering (surgical, wearing, virus). |
+| `zoom` | **4.71** | A verb meaning "go fast" → a noun meaning "meeting." |
+| `woke` | **3.78** | Past tense of wake → cultural flag. |
+| `music` | 1.10 | Anchor word — sits right at the noise floor. |
+| `father` | 1.15 | Anchor word — barely moves. |
+
+The site lets you drive these comparisons yourself across all 19,663 eligible words.
+
+## How the pipeline works
+
+```
+FineWeb (Common Crawl, 2013–2025)
+   │
+   ▼
+1. Stream + tokenize ~1B tokens/year, language-filtered (score ≥ 0.65)
+   │
+   ▼
+2. Build a single shared vocabulary across all 13 years
+   (~120K tokens that appear in ≥12 years with freq ≥50)
+   │
+   ▼
+3. Train one Word2Vec SGNS per year on GPU
+   (300d, window 5, 5 negatives, in-RAM map-style dataset)
+   │
+   ▼
+4. Procrustes-align every year onto 2013's coordinate system
+   (orthogonal rotation on L2-normalized embeddings)
+   │
+   ▼
+5. Compute drift parquet files (per-word cosine distance per year)
+   │
+   ▼
+6. Precompute the static JSON / binary shards the web app reads
+```
+
+Step 4 is what most "train Word2Vec on a corpus" tutorials skip — and it's the only reason any of this is comparable. Each year's independently-trained model lives in its own arbitrarily-rotated coordinate system, so raw cosines across years are noise. Procrustes finds the orthogonal rotation that lines them up, anchored on a stable reference year (2013). Without it, the drift signal vanishes into the alignment noise.
+
+The web app is fully static: every page prerenders, and per-word data ships as JSON + float32 binary shards under `/data/` so client-side cosine math (the `/ternary` view) runs without a server.
+
+## Tech stack
+
+| Layer | Tools |
+|---|---|
+| Data | FineWeb / Common Crawl, HuggingFace `datasets`, Python 3.13, `uv` |
+| Training | PyTorch (Skip-gram + Negative Sampling), CUDA, dense Adam |
+| Analysis | NumPy, SciPy, scikit-learn, UMAP, pandas (parquet) |
+| Frontend | Next.js 16 (App Router), TypeScript, Tailwind v4, Framer Motion, D3, Three.js + react-three-fiber + drei |
+| Deploy | Vercel (Git integration, auto-deploy on `main`) |
+
+## Running it yourself
+
+Most readers won't need to — the deployed site is the demo. But if you want to retrain on a different corpus, or iterate on the architecture, the pipeline is fully reproducible from scratch.
+
+<details>
+<summary><b>Full pipeline setup</b> (Python 3.13, GPU recommended, ~100 GB disk, 128 GB RAM)</summary>
+
+### Setup
 
 ```bash
 git clone https://github.com/scheuclu/language_drift.git
@@ -21,150 +89,98 @@ cd language_drift
 uv sync
 ```
 
-## Usage
+### Stage 1 — Data pipeline
 
-The pipeline has three stages. Each stage produces artifacts that the next stage consumes. All outputs go into `data/` and `models/` (gitignored).
-
-### Stage 1: Data Pipeline
-
-**1A — Stream & tokenize** (~hours per year, network-bound):
+Stream and tokenize (resumable):
 
 ```bash
-# Single year
-uv run python scripts/run_data_pipeline.py --year 2013
-
-# All years (2013–2025)
-uv run python scripts/run_data_pipeline.py --all
+uv run python scripts/run_data_pipeline.py --all              # all years
+uv run python scripts/run_data_pipeline.py --year 2013        # one year
 ```
 
-Outputs per year:
-- `data/tokens/{year}_tokenized.txt.gz` — tokenized text (~2–3 GB)
-- `data/tokens/{year}_freqs.json` — word frequency counts
-- `data/tokens/{year}_meta.json` — stats (token count, doc count)
+Outputs per year: `data/tokens/{year}_tokenized.txt.gz`, `data/tokens/{year}_freqs.json`.
 
-Supports resume — if interrupted, re-run the same command and it picks up where it left off.
-
-**1B — Build shared vocabulary** (requires all years from 1A):
+Build shared vocab (requires all years):
 
 ```bash
 uv run python scripts/run_data_pipeline.py --build-vocab
 ```
 
-Output: `data/vocab/vocab.json` — words appearing in 12+ years with frequency >= 50, capped at 200K.
-
-**1C — Encode to numpy arrays** (requires vocab from 1B):
+Encode tokenized text to int32 arrays:
 
 ```bash
-# Single year
-uv run python scripts/run_data_pipeline.py --encode --year 2013
-
-# All years
 uv run python scripts/run_data_pipeline.py --encode --all
 ```
 
-Output per year: `data/tokens/{year}.npy` — int32 token ID array (~4 GB, loaded fully into RAM during training).
-
-### Stage 2: Train Embeddings
+### Stage 2 — Train embeddings (GPU)
 
 ```bash
-# Single year
-uv run python scripts/run_training.py --year 2013 --device cuda
-
-# All years sequentially
 uv run python scripts/run_training.py --all --device cuda
-
-# CPU fallback (slower)
-uv run python scripts/run_training.py --year 2013 --device cpu
 ```
 
-Output per year: `models/embeddings/{year}.npy` — embedding matrix of shape `(vocab_size, 300)`.
+Outputs: `models/embeddings/{year}.npy`. ~1–3 hours per year on a single GPU.
 
-Training parameters (configured in `config.py`):
-| Parameter | Value |
-|-----------|-------|
+Hyperparameters live in `config.py`:
+
+| | |
+|---|---|
 | Embedding dim | 300 |
-| Window size | 5 |
+| Window | 5 |
 | Negative samples | 5 |
-| Batch size | 4096 |
-| Learning rate | 0.025 (linear decay to 1e-4) |
-| Epochs | 1 |
-| Subsampling threshold | 1e-4 |
+| Batch size | 32,768 |
+| Learning rate | 0.0075 (linear decay) |
+| Epochs | 3 |
 
-Estimated time: ~1–3 hours per year on a DGX Spark GPU.
-
-### Stage 3: Alignment & Drift Analysis
+### Stage 3 — Alignment + drift
 
 ```bash
-# Run alignment only
-uv run python scripts/run_analysis.py --align
-
-# Run drift metrics only (requires alignment)
-uv run python scripts/run_analysis.py --drift
-
-# Run both
 uv run python scripts/run_analysis.py --all
 ```
 
-Outputs:
-- `models/aligned/{year}.npy` — embeddings aligned to 2013 reference space
-- `models/drift/drift_pairwise.parquet` — cosine distance per word between consecutive years
-- `models/drift/drift_from_base.parquet` — cosine distance per word from 2013
-- `models/drift/drift_summary.parquet` — per-word aggregate drift (total, mean, max)
+Outputs `models/aligned/{year}.npy` and `models/drift/*.parquet`.
 
-### Browse Samples
+### Stage 4 — Web data shards
+
+These three scripts take the aligned embeddings and emit everything the web app needs under `web/public/data/`:
 
 ```bash
-uv run streamlit run app.py
+uv run python scripts/precompute_web_data.py   # manifest + per-word JSONs
+uv run python scripts/precompute_vectors.py    # per-word aligned vectors (.bin)
+uv run python scripts/precompute_tsne.py       # joint 3D UMAP for /space
 ```
 
-Opens a dashboard at http://localhost:8501 to flip through raw FineWeb 2013 samples.
+After retraining, re-run these three and commit the new snapshot — Vercel auto-deploys.
 
-## Full Pipeline (Copy-Paste)
-
-```bash
-# Run everything end-to-end on a GPU machine
-uv run python scripts/run_data_pipeline.py --all
-uv run python scripts/run_data_pipeline.py --build-vocab
-uv run python scripts/run_data_pipeline.py --encode --all
-uv run python scripts/run_training.py --all --device cuda
-uv run python scripts/run_analysis.py --all
-```
-
-## Project Structure
+### Project structure
 
 ```
-config.py                        # Hyperparameters and paths
-app.py                           # Streamlit sample browser
-main.py                          # Quick data loading script
-
+config.py                          # hyperparameters + paths (single source of truth)
 pipeline/
-  snapshot_registry.py           # Year -> CC-MAIN snapshot mapping
-  tokenizer.py                   # Text normalization and tokenization
-  vocab.py                       # Shared vocabulary construction
-  data_pipeline.py               # Streaming, tokenization, encoding
-
+  snapshot_registry.py             # year → CC-MAIN snapshot mapping
+  tokenizer.py                     # text normalization
+  vocab.py                         # shared vocabulary construction
+  data_pipeline.py                 # streaming, tokenization, encoding
 training/
-  word2vec.py                    # PyTorch Skip-gram model (SGNS)
-  dataset.py                    # Map-style dataset (in-RAM)
-  train.py                      # GPU training loop
-
+  word2vec.py                      # PyTorch SGNS model
+  dataset.py                       # map-style in-RAM dataset
+  train.py                         # GPU training loop
 analysis/
-  alignment.py                  # Orthogonal Procrustes alignment
-  drift.py                      # Cosine drift metrics
-
+  alignment.py                     # orthogonal Procrustes
+  drift.py                         # cosine drift metrics
 scripts/
-  run_data_pipeline.py           # CLI for Stage 1
-  run_training.py                # CLI for Stage 2
-  run_analysis.py                # CLI for Stage 3
+  run_data_pipeline.py             # Stage 1 CLI
+  run_training.py                  # Stage 2 CLI
+  run_analysis.py                  # Stage 3 CLI
+  precompute_*.py                  # Stage 4 (web data)
+web/                               # Next.js app — see web/README.md
 ```
 
-## Data Source
+</details>
 
-[HuggingFaceFW/fineweb](https://huggingface.co/datasets/HuggingFaceFW/fineweb) — 15T tokens of cleaned English web text from Common Crawl (2013–2025). Licensed under ODC-BY.
+## Data source
 
-## Estimated Resources
+[HuggingFaceFW/fineweb](https://huggingface.co/datasets/HuggingFaceFW/fineweb) — 15 trillion tokens of cleaned English web text from Common Crawl, 2013–2025. Licensed ODC-BY.
 
-- **Disk:** ~100 GB (90 GB tokenized data + ID arrays, 6 GB models)
-- **RAM:** 128 GB recommended (loads ~4 GB token array per year into memory)
-- **Training time:** ~1–3 hours per year on GPU, ~13–39 hours total
-- **Data streaming:** several hours per year (network-dependent)
+## Author
+
+Built by [Lukas Scheucher](https://github.com/scheuclu). MIT licensed.
