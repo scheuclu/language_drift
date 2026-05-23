@@ -14,7 +14,7 @@ Thirteen separate Word2Vec models — one per year, 2013 through 2025, trained o
 |---|---|
 | ![explore](docs/img/explore.png) | **`/explore` — constellation view.** Pick a word; scroll to scrub through the years. Watch a word's nearest neighbors fly in and out as its meaning shifts. Click any neighbor to dive into it. |
 | ![ternary](docs/img/ternary.png) | **`/ternary` — three-pole projection.** Pick three anchor words (e.g. `halloween`, `virus`, `cloth`) and a target (`mask`). Each year's barycentric position is the target's cosine similarity to each anchor, projected into the triangle. The COVID arc is dead-obvious. |
-| ![space](docs/img/space.png) | **`/space` — 3D embedding cloud.** All 19,663 vocabulary words projected to 3D via UMAP, jointly across all years. Hit play and the cloud breathes between 2013 and 2025 as each word interpolates along its 13-year path. Mark words to follow them through the cloud. |
+| ![space](docs/img/space.gif) | **`/space` — 3D embedding cloud.** All 19,663 vocabulary words projected to 3D via UMAP, jointly across all years. Hit play and the cloud breathes between 2013 and 2025 as each word interpolates along its 13-year path. Mark words to follow them through the cloud. |
 
 ## Findings
 
