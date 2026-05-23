@@ -15,7 +15,7 @@ export async function loadWord(word: string): Promise<WordData | null> {
   const key = word.toLowerCase();
   const cached = wordCache.get(key);
   if (cached) return cached;
-  const res = await fetch(`/data/words/${encodeURIComponent(key)}.json`);
+  const res = await fetch(`/data/w/${encodeURIComponent(key)}.json`);
   if (!res.ok) return null;
   const data = (await res.json()) as WordData;
   wordCache.set(key, data);

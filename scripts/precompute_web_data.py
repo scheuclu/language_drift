@@ -132,8 +132,10 @@ def main() -> None:
         drift_traj[wid] = traj
         total_drift[wid] = tot
 
+    # Named `w` (not `words`) to avoid Vercel's Sanity service auto-detection
+    # which fires on a `words/` directory and pins `sanity build`.
     print("writing per-word JSON shards (compact format)...")
-    words_dir = OUT_DIR / "words"
+    words_dir = OUT_DIR / "w"
     words_dir.mkdir(parents=True, exist_ok=True)
     for wid in eligible_ids.tolist():
         w = inv_vocab[wid]
