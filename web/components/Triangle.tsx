@@ -24,34 +24,64 @@ const CORNERS = [
   { x: SQRT3_2, y: 0.5 }, // C: bottom-right
 ] as const;
 
-// Softmax temperature. Lower = more peaked toward the highest anchor; higher = more centroid.
-// 0.15 gives noticeable spread without pinning everything to a corner.
-const SOFTMAX_T = 0.07;
-
-function bary(sims: readonly [number, number, number]): { x: number; y: number } {
-  const m = Math.max(sims[0], sims[1], sims[2]);
-  const e0 = Math.exp((sims[0] - m) / SOFTMAX_T);
-  const e1 = Math.exp((sims[1] - m) / SOFTMAX_T);
-  const e2 = Math.exp((sims[2] - m) / SOFTMAX_T);
-  const sum = e0 + e1 + e2;
-  const w0 = e0 / sum;
-  const w1 = e1 / sum;
-  const w2 = e2 / sum;
+// Data-driven projection: rescale each axis from [axisMin, axisMax] to [0, 1],
+// then renormalize the triple for barycentric. Corner i = a point whose
+// similarity to anchor i is the maximum observed across all trajectories.
+function project(
+  sims: readonly [number, number, number],
+  axisMin: readonly [number, number, number],
+  axisMax: readonly [number, number, number],
+): { x: number; y: number } {
+  const r0 = remap(sims[0], axisMin[0], axisMax[0]);
+  const r1 = remap(sims[1], axisMin[1], axisMax[1]);
+  const r2 = remap(sims[2], axisMin[2], axisMax[2]);
+  const sum = r0 + r1 + r2;
+  if (sum < 1e-9) return { x: 0, y: 0 };
+  const w0 = r0 / sum;
+  const w1 = r1 / sum;
+  const w2 = r2 / sum;
   return {
     x: w0 * CORNERS[0].x + w1 * CORNERS[1].x + w2 * CORNERS[2].x,
     y: w0 * CORNERS[0].y + w1 * CORNERS[1].y + w2 * CORNERS[2].y,
   };
 }
 
+function remap(v: number, lo: number, hi: number): number {
+  const range = hi - lo;
+  if (range < 1e-9) return 0.5;
+  return Math.max(0, Math.min(1, (v - lo) / range));
+}
+
 export function Triangle({ years, anchors, trajectories }: Props) {
   const [hover, setHover] = useState<{ ti: number; yi: number } | null>(null);
   const [activeTi, setActiveTi] = useState<number | null>(null);
 
-  const paths = useMemo(() => {
-    return trajectories.map((t) => {
-      const points = t.sims.map((s) => (s ? bary(s) : null));
+  const { paths, axisMax } = useMemo(() => {
+    const allSims: [number, number, number][] = [];
+    for (const t of trajectories) {
+      for (const s of t.sims) if (s) allSims.push(s as [number, number, number]);
+    }
+    const axisMin: [number, number, number] = [0, 0, 0];
+    const axisMax: [number, number, number] = [1, 1, 1];
+    if (allSims.length > 0) {
+      for (let i = 0; i < 3; i++) {
+        let lo = allSims[0][i];
+        let hi = allSims[0][i];
+        for (const s of allSims) {
+          if (s[i] < lo) lo = s[i];
+          if (s[i] > hi) hi = s[i];
+        }
+        axisMin[i] = lo;
+        axisMax[i] = hi;
+      }
+    }
+    const paths = trajectories.map((t) => {
+      const points = t.sims.map((s) =>
+        s ? project(s as [number, number, number], axisMin, axisMax) : null,
+      );
       return { ...t, points };
     });
+    return { paths, axisMax };
   }, [trajectories]);
 
   const allLabeled = anchors.every((a) => a.length > 0);
@@ -139,6 +169,7 @@ export function Triangle({ years, anchors, trajectories }: Props) {
                       fill={t.color}
                       stroke="rgba(0,0,0,0.4)"
                       strokeWidth={0.002}
+                      initial={false}
                       animate={{ r: dotR, opacity: dotOpacity }}
                       transition={{ duration: 0.2 }}
                     />
@@ -178,17 +209,30 @@ export function Triangle({ years, anchors, trajectories }: Props) {
           const c = CORNERS[i];
           const offY = c.y < 0 ? -0.08 : 0.12;
           return (
-            <text
-              key={i}
-              x={c.x}
-              y={c.y + offY}
-              fontSize={0.07}
-              fill={a ? "rgba(244,184,96,0.95)" : "rgba(255,255,255,0.3)"}
-              textAnchor="middle"
-              fontFamily="ui-monospace, monospace"
-            >
-              {a || "(pick)"}
-            </text>
+            <g key={i}>
+              <text
+                x={c.x}
+                y={c.y + offY}
+                fontSize={0.07}
+                fill={a ? "rgba(244,184,96,0.95)" : "rgba(255,255,255,0.3)"}
+                textAnchor="middle"
+                fontFamily="ui-monospace, monospace"
+              >
+                {a || "(pick)"}
+              </text>
+              {a && paths.length > 0 && (
+                <text
+                  x={c.x}
+                  y={c.y + offY + (c.y < 0 ? -0.05 : 0.05)}
+                  fontSize={0.035}
+                  fill="rgba(255,255,255,0.35)"
+                  textAnchor="middle"
+                  fontFamily="ui-monospace, monospace"
+                >
+                  max={axisMax[i].toFixed(2)}
+                </text>
+              )}
+            </g>
           );
         })}
 

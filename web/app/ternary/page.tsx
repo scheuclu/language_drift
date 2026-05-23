@@ -131,8 +131,8 @@ export default function TernaryPage() {
           </h1>
         </div>
         <p className="text-foreground/60 text-xs lg:text-sm max-w-md leading-relaxed text-right">
-          Each yearly position is the target&apos;s cosine to each anchor,
-          softmaxed into barycentric weights.
+          Each axis is rescaled to the observed range. Each corner shows the
+          maximum cosine reached for that anchor.
         </p>
       </header>
 
