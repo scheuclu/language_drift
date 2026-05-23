@@ -1,0 +1,19 @@
+# Vercel uses this *instead of* .gitignore when present.
+# Everything ignored here is excluded from the deployment upload.
+# public/data/ is intentionally NOT listed — we want those shards shipped.
+
+node_modules
+.next
+.next/cache
+out
+.git
+.DS_Store
+*.pem
+*.tsbuildinfo
+next-env.d.ts
+.env*
+.vercel
+dev.log
+npm-debug.log*
+coverage
+scripts/shoot.mjs

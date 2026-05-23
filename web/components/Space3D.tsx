@@ -114,7 +114,7 @@ function PointCloud({
     }
   });
 
-  function pickIndex(e: ThreeEvent<PointerEvent>): number | null {
+  function pickIndex(e: ThreeEvent<PointerEvent | MouseEvent>): number | null {
     return typeof e.index === "number" ? e.index : null;
   }
 
