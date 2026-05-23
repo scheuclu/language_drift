@@ -5,6 +5,23 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { loadManifest } from "@/lib/data";
 import { loadSpace, type SpaceData } from "@/lib/space";
 import type { Manifest } from "@/lib/types";
+import type { RGB } from "@/components/Space3D";
+
+const MARK_PALETTE = [
+  "#ffd45d", // amber
+  "#ff5da2", // hot pink
+  "#5dd5e8", // cyan
+  "#a0ff5d", // lime
+  "#ff8a5d", // coral
+  "#c084ff", // purple
+  "#5dffd9", // mint
+  "#ff5d5d", // red
+];
+
+function hexToRgb(hex: string): RGB {
+  const n = parseInt(hex.slice(1), 16);
+  return [((n >> 16) & 0xff) / 255, ((n >> 8) & 0xff) / 255, (n & 0xff) / 255];
+}
 
 const Space3D = dynamic(
   () => import("@/components/Space3D").then((m) => m.Space3D),
@@ -19,7 +36,16 @@ export default function SpacePage() {
   const [error, setError] = useState<string | null>(null);
   const [yearIndex, setYearIndex] = useState(0);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const [marked, setMarked] = useState<string[]>([
+    "nft",
+    "crypto",
+    "lockdown",
+    "zoom",
+    "mask",
+    "woke",
+  ]);
   const [playing, setPlaying] = useState(false);
+  const [hoveredChip, setHoveredChip] = useState<number | null>(null);
   const playRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -35,6 +61,42 @@ export default function SpacePage() {
     if (manifest) for (const w of manifest.words) m.set(w.w, w.d);
     return m;
   }, [manifest]);
+
+  const wordToIdx = useMemo(() => {
+    const m = new Map<string, number>();
+    if (data) data.index.words.forEach((w, i) => m.set(w, i));
+    return m;
+  }, [data]);
+
+  // Only marked words present in space (skip any that aren't in vocab).
+  // markedVisible is parallel to markedIndices / markedColors / markedHex.
+  const { markedIndices, markedColors, markedHex, markedVisible } = useMemo(() => {
+    const ids: number[] = [];
+    const cols: RGB[] = [];
+    const hex: string[] = [];
+    const vis: string[] = [];
+    for (let i = 0; i < marked.length; i++) {
+      const w = marked[i];
+      const idx = wordToIdx.get(w);
+      if (idx === undefined) continue;
+      const h = MARK_PALETTE[i % MARK_PALETTE.length];
+      ids.push(idx);
+      cols.push(hexToRgb(h));
+      hex.push(h);
+      vis.push(w);
+    }
+    return { markedIndices: ids, markedColors: cols, markedHex: hex, markedVisible: vis };
+  }, [marked, wordToIdx]);
+
+  const onToggleMark = (idx: number) => {
+    if (!data) return;
+    const w = data.index.words[idx];
+    setMarked((prev) => (prev.includes(w) ? prev : [...prev, w]));
+  };
+
+  const onUnmark = (w: string) => {
+    setMarked((prev) => prev.filter((x) => x !== w));
+  };
 
   // Year playback loop.
   useEffect(() => {
@@ -68,10 +130,13 @@ export default function SpacePage() {
         {data && manifest ? (
           <Space3D
             data={data}
-            driftByWord={driftByWord}
             yearIndex={yearIndex}
             hoveredIdx={hoveredIdx}
             onHover={setHoveredIdx}
+            markedIndices={markedIndices}
+            markedColors={markedColors}
+            highlightedMarkedIdx={hoveredChip}
+            onToggleMark={onToggleMark}
           />
         ) : (
           <div className="absolute inset-0 grid place-items-center text-muted text-sm font-mono">
@@ -95,20 +160,40 @@ export default function SpacePage() {
         </p>
       </header>
 
-      {/* color legend */}
-      <div className="absolute top-16 right-6 lg:right-10 pointer-events-none text-[10px] font-mono text-foreground/65">
-        <div className="uppercase tracking-widest text-muted mb-1">drift</div>
-        <div
-          className="w-32 h-2 rounded-full"
-          style={{
-            background:
-              "linear-gradient(to right, rgb(51,128,255), rgb(242,255,51), rgb(255,89,179))",
-          }}
-        />
-        <div className="flex justify-between mt-1 text-foreground/40">
-          <span>stable</span>
-          <span>drifter</span>
+      {/* marked list */}
+      <div className="absolute left-6 lg:left-10 top-1/2 -translate-y-1/2 pointer-events-auto max-w-[180px]">
+        <div className="text-[10px] uppercase tracking-widest text-muted font-mono mb-2">
+          marked
         </div>
+        {markedVisible.length === 0 ? (
+          <div className="text-[11px] text-muted/50 font-mono italic">
+            click any point to pin
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {markedVisible.map((w, i) => (
+              <div
+                key={w}
+                onMouseEnter={() => setHoveredChip(i)}
+                onMouseLeave={() => setHoveredChip(null)}
+                className="group flex items-center gap-2 backdrop-blur-md bg-black/35 hover:bg-black/55 border border-white/10 rounded px-2 py-1 text-xs font-mono transition-colors"
+              >
+                <span
+                  className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-[0_0_8px_currentColor]"
+                  style={{ background: markedHex[i], color: markedHex[i] }}
+                />
+                <span className="flex-1 text-foreground truncate">{w}</span>
+                <button
+                  onClick={() => onUnmark(w)}
+                  className="text-muted hover:text-foreground transition-colors leading-none w-3.5 h-3.5 grid place-items-center opacity-50 group-hover:opacity-100"
+                  aria-label={`remove ${w}`}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* hover card */}
