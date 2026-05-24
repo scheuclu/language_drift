@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Trains per-year Word2Vec (SGNS) embeddings on FineWeb (Common Crawl) slices from 2013–2025, aligns them, and measures cosine drift to quantify how English usage shifts over time.
+Trains per-year Word2Vec (SGNS) embeddings on FineWeb (Common Crawl) slices from 2014–2025, aligns them, and measures cosine drift to quantify how English usage shifts over time.
 
 ## Environment
 
@@ -42,7 +42,7 @@ Stage 3b drift                 ─► models/drift/*.parquet
 ```
 
 Key cross-cutting facts:
-- **All hyperparameters and paths live in `config.py`.** Don't hardcode them in modules — import. `YEARS = range(2013, 2026)`, `EMBEDDING_DIM=300`, `BATCH_SIZE=4096`, `WINDOW_SIZE=5`, `NUM_NEGATIVE_SAMPLES=5`, `MAX_VOCAB_SIZE=200_000`, `MIN_WORD_FREQ=50`, `MIN_YEARS_FOR_VOCAB=12`, `SEED=42`.
+- **All hyperparameters and paths live in `config.py`.** Don't hardcode them in modules — import. `YEARS = range(2014, 2026)`, `ANCHOR_YEAR=2018`, `EMBEDDING_DIM=300`, `BATCH_SIZE=4096`, `WINDOW_SIZE=5`, `NUM_NEGATIVE_SAMPLES=5`, `MAX_VOCAB_SIZE=200_000`, `MIN_WORD_FREQ=50`, `MIN_YEARS_FOR_VOCAB=11`, `SEED=42`.
 - **Vocab is shared across all years** — every year's embedding matrix has the same row order keyed by `vocab.json`. This is what makes alignment and drift comparison possible. Never re-build vocab per year or re-order rows.
 - **A year is composed of multiple `CC-MAIN-YYYY-WW` snapshots** registered in `pipeline/snapshot_registry.py`. `TARGET_TOKENS_PER_YEAR` (1B) is split evenly across the year's snapshots, and each snapshot is filtered to `language_score >= LANGUAGE_SCORE_THRESHOLD` (0.65).
 - **Stage 1A is resumable** via `data/tokens/{year}_checkpoint.json` (per-snapshot completion). If you change the tokenizer or filter, you must delete the checkpoint and `_tokenized.txt.gz` for that year — partial re-runs will mix incompatible token streams.
@@ -50,7 +50,7 @@ Key cross-cutting facts:
 - **SGNS implementation detail (`training/word2vec.py`):** sparse embeddings + `SparseAdam`. Two separate embedding tables (`center_embeddings`, `context_embeddings`); only `center_embeddings.weight` is saved as the final per-year embedding.
 - **Subsampling and negative-sampling noise table are built inside `SkipGramDataset.__init__`** from `word_freqs`. The noise distribution is unigram^0.75 with `<UNK>` (id 0) zeroed out.
 - **Determinism:** `set_seed(SEED)` is called at the top of `train_year` and sets `torch.backends.cudnn.deterministic = True`. Preserve this when editing the training loop.
-- **Alignment is anchored to 2013** (the reference year). All other years are rotated into 2013's space via orthogonal Procrustes on L2-normalized embeddings (`analysis/alignment.py`).
+- **Alignment is anchored to `ANCHOR_YEAR` (2018)** — chosen because it sits centrally in the time range and has many CC-MAIN snapshots, so its embedding is stable. All other years are rotated into 2018's space via orthogonal Procrustes on L2-normalized embeddings (`analysis/alignment.py`). 2013 was previously the anchor but is now excluded from `YEARS` entirely (too few snapshots).
 
 ## Things that look off but aren't
 
