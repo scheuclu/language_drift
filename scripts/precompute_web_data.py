@@ -19,7 +19,7 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from config import ALIGNED_DIR, TOKENS_DIR, VOCAB_DIR, YEARS
+from config import ALIGNED_DIR, ANCHOR_YEAR, TOKENS_DIR, VOCAB_DIR, YEARS
 from pipeline.vocab import load_vocab
 
 MIN_FREQ_ANYWHERE = 3000
@@ -27,7 +27,7 @@ TOP_K = 25
 SIM_DECIMALS = 3
 DRIFT_DECIMALS = 3
 CHUNK_SIZE = 1024
-WORD_RE = re.compile(r"^[a-z]{2,20}$")
+WORD_RE = re.compile(r"^[a-z]{4,20}$")
 OUT_DIR = Path(__file__).resolve().parent.parent / "web" / "public" / "data"
 
 
@@ -110,7 +110,7 @@ def main() -> None:
         torch.cuda.empty_cache()
 
     print("computing drift trajectories...")
-    base_yi = 0
+    base_yi = YEARS.index(ANCHOR_YEAR) if ANCHOR_YEAR in YEARS else 0
     base_embeds = all_embeds[base_yi]
     base_norms = np.linalg.norm(base_embeds, axis=1) + 1e-12
     drift_traj: dict[int, dict[str, float]] = {}
@@ -176,7 +176,7 @@ def main() -> None:
         json.dump(
             {
                 "years": [int(y) for y in YEARS],
-                "base_year": int(YEARS[0]),
+                "base_year": ANCHOR_YEAR,
                 "n_words": len(manifest_words),
                 "words": manifest_words,
             },

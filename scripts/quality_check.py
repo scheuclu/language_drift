@@ -8,7 +8,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from config import ALIGNED_DIR, DRIFT_DIR, TOKENS_DIR, VOCAB_DIR, YEARS
+from config import ALIGNED_DIR, ANCHOR_YEAR, DRIFT_DIR, TOKENS_DIR, VOCAB_DIR, YEARS
 from pipeline.vocab import load_vocab
 
 
@@ -27,7 +27,7 @@ def cos_drift(a, b):
 def main():
     vocab = load_vocab(VOCAB_DIR / "vocab.json")
     aligned = {y: np.load(ALIGNED_DIR / f"{y}.npy") for y in YEARS if (ALIGNED_DIR / f"{y}.npy").exists()}
-    base = min(aligned.keys())
+    base = ANCHOR_YEAR if ANCHOR_YEAR in aligned else min(aligned.keys())
     last = max(aligned.keys())
 
     print(f"=== Hand-picked drifters: {base} -> {last} ===")

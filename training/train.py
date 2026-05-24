@@ -1,5 +1,6 @@
 import json
 import random
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -13,13 +14,21 @@ from config import (
     NUM_NEGATIVE_SAMPLES,
     SEED,
     SUBSAMPLING_THRESHOLD,
+    TENSORBOARD_DIR,
     TOKENS_DIR,
     VOCAB_DIR,
     WINDOW_SIZE,
+    YEARS,
 )
 from pipeline.vocab import load_vocab
 from training.dataset import GPUSkipGramSampler
 from training.word2vec import Word2VecSGNS
+
+try:
+    from torch.utils.tensorboard import SummaryWriter
+    _HAS_TB = True
+except ImportError:
+    _HAS_TB = False
 
 
 def set_seed(seed: int) -> None:
@@ -32,12 +41,37 @@ def set_seed(seed: int) -> None:
         torch.backends.cudnn.benchmark = False
 
 
-def train_year(year: int, device: str = "cuda") -> None:
+def _warm_start_embeddings(
+    model: Word2VecSGNS,
+    year: int,
+    embeddings_dir: Path,
+    vocab_size: int,
+    embedding_dim: int,
+) -> None:
+    prev_year = year - 1
+    prev_path = embeddings_dir / f"{prev_year}.npy"
+    if prev_path.exists():
+        prev_emb = np.load(prev_path)
+        if prev_emb.shape == (vocab_size, embedding_dim):
+            model.center_embeddings.weight.data.copy_(
+                torch.from_numpy(prev_emb)
+            )
+            print(f"  Warm-started from {prev_year} embeddings")
+        else:
+            print(f"  Shape mismatch with {prev_year}, using random init")
+    else:
+        print(f"  No {prev_year} embeddings found, using random init")
+
+
+def train_year(
+    year: int,
+    device: str = "cuda",
+    warm_start: bool = False,
+) -> None:
     set_seed(SEED)
 
     vocab = load_vocab(VOCAB_DIR / "vocab.json")
     vocab_size = len(vocab)
-    id_to_word = {str(v): k for k, v in vocab.items()}
 
     freq_path = TOKENS_DIR / f"{year}_freqs.json"
     with open(freq_path) as f:
@@ -49,6 +83,7 @@ def train_year(year: int, device: str = "cuda") -> None:
     print(f"  {len(token_ids):,} tokens loaded into RAM")
 
     print("Building GPU sampler (subsampling + noise table)...")
+    id_to_word = {str(v): k for k, v in vocab.items()}
     sampler = GPUSkipGramSampler(
         token_ids=token_ids,
         vocab_size=vocab_size,
@@ -64,12 +99,22 @@ def train_year(year: int, device: str = "cuda") -> None:
     del token_ids
 
     model = Word2VecSGNS(vocab_size, EMBEDDING_DIM).to(device)
+
+    if warm_start and year > min(YEARS):
+        _warm_start_embeddings(model, year, EMBEDDINGS_DIR, vocab_size, EMBEDDING_DIM)
+
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
     steps_per_epoch = len(sampler) // BATCH_SIZE
     total_batches = steps_per_epoch * NUM_EPOCHS
 
     print(f"Training year {year}: {total_batches:,} batches, device={device}")
+
+    writer = None
+    if _HAS_TB:
+        log_dir = TENSORBOARD_DIR / f"year_{year}"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        writer = SummaryWriter(log_dir=str(log_dir))
 
     running_loss = torch.zeros((), device=device)
     for global_step in range(1, total_batches + 1):
@@ -90,7 +135,13 @@ def train_year(year: int, device: str = "cuda") -> None:
         if global_step % 10_000 == 0:
             avg_loss = (running_loss / 10_000).item()
             print(f"  Step {global_step:>8,} / {total_batches:,} | Loss {avg_loss:.4f} | LR {lr:.6f}")
+            if writer is not None:
+                writer.add_scalar("loss/train", avg_loss, global_step)
+                writer.add_scalar("lr", lr, global_step)
             running_loss.zero_()
+
+    if writer is not None:
+        writer.close()
 
     EMBEDDINGS_DIR.mkdir(parents=True, exist_ok=True)
     embeddings = model.center_embeddings.weight.detach().cpu().numpy()

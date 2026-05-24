@@ -6,7 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import numpy as np
 
-from config import ALIGNED_DIR, DRIFT_DIR, EMBEDDINGS_DIR, VOCAB_DIR, YEARS
+from config import ALIGNED_DIR, ANCHOR_YEAR, DRIFT_DIR, EMBEDDINGS_DIR, VOCAB_DIR, YEARS
 from analysis.alignment import align_all_years
 from analysis.drift import compute_drift_from_base, compute_drift_summary, compute_pairwise_drift
 from pipeline.vocab import load_vocab
@@ -27,7 +27,9 @@ def run_alignment() -> None:
         print("No embedding files found.")
         return
 
-    base_year = min(embeddings.keys())
+    base_year = ANCHOR_YEAR if ANCHOR_YEAR in embeddings else min(embeddings.keys())
+    if base_year != ANCHOR_YEAR:
+        print(f"Warning: anchor year {ANCHOR_YEAR} not found, falling back to {base_year}")
     print(f"\nAligning {len(embeddings)} years to reference year {base_year}...")
     aligned = align_all_years(embeddings, base_year)
 
@@ -51,7 +53,9 @@ def run_drift() -> None:
         print("Need at least 2 aligned embedding files.")
         return
 
-    base_year = min(aligned.keys())
+    base_year = ANCHOR_YEAR if ANCHOR_YEAR in aligned else min(aligned.keys())
+    if base_year != ANCHOR_YEAR:
+        print(f"Warning: anchor year {ANCHOR_YEAR} not found, falling back to {base_year}")
     print(f"Computing drift across {len(aligned)} years...")
 
     pairwise_df = compute_pairwise_drift(aligned, vocab)
