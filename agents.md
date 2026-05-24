@@ -35,7 +35,7 @@ Measure how English language usage shifts over time by training word embeddings 
 ### Stage 2: PyTorch Word2Vec Training (per year, on DGX Spark GPU)
 
 **Model:** Skip-gram with Negative Sampling (SGNS)
-- `embedding_dim = 300`, `window_size = 5`, `num_negatives = 5`
+- `embedding_dim = 300`, `window_size = 10`, `num_negatives = 15`
 - `batch_size = 4096`, `lr = 0.025` (linear decay to 1e-4), 1 epoch
 - Frequent word subsampling (threshold 1e-4)
 - Noise distribution: unigram^(3/4) for negative sampling
