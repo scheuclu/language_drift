@@ -1,6 +1,12 @@
 import numpy as np
 import pandas as pd
 
+from config import MIN_WORD_LENGTH
+
+
+def _word_is_short(word: str) -> bool:
+    return len(word) < MIN_WORD_LENGTH
+
 
 def cosine_similarity_rows(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     a_norm = np.linalg.norm(a, axis=1)
@@ -27,7 +33,7 @@ def compute_pairwise_drift(
 
         for wid in range(len(dist)):
             word = id_to_word.get(wid, f"<id:{wid}>")
-            if word == "<UNK>":
+            if word == "<UNK>" or _word_is_short(word):
                 continue
             records.append({
                 "word": word,
@@ -57,7 +63,7 @@ def compute_drift_from_base(
 
         for wid in range(len(dist)):
             word = id_to_word.get(wid, f"<id:{wid}>")
-            if word == "<UNK>":
+            if word == "<UNK>" or _word_is_short(word):
                 continue
             records.append({
                 "word": word,
