@@ -27,7 +27,7 @@ TOP_K = 25
 SIM_DECIMALS = 3
 DRIFT_DECIMALS = 3
 CHUNK_SIZE = 1024
-WORD_RE = re.compile(r"^[a-z]{2,20}$")
+WORD_RE = re.compile(r"^[a-z]{3,20}$")
 OUT_DIR = Path(__file__).resolve().parent.parent / "web" / "public" / "data"
 
 
