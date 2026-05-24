@@ -13,6 +13,7 @@ from config import (
     NUM_NEGATIVE_SAMPLES,
     SEED,
     SUBSAMPLING_THRESHOLD,
+    TENSORBOARD_DIR,
     TOKENS_DIR,
     VOCAB_DIR,
     WINDOW_SIZE,
@@ -20,6 +21,12 @@ from config import (
 from pipeline.vocab import load_vocab
 from training.dataset import GPUSkipGramSampler
 from training.word2vec import Word2VecSGNS
+
+try:
+    from torch.utils.tensorboard import SummaryWriter
+    _HAS_TB = True
+except ImportError:
+    _HAS_TB = False
 
 
 def set_seed(seed: int) -> None:
@@ -71,6 +78,12 @@ def train_year(year: int, device: str = "cuda") -> None:
 
     print(f"Training year {year}: {total_batches:,} batches, device={device}")
 
+    writer = None
+    if _HAS_TB:
+        log_dir = TENSORBOARD_DIR / f"year_{year}"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        writer = SummaryWriter(log_dir=str(log_dir))
+
     running_loss = torch.zeros((), device=device)
     for global_step in range(1, total_batches + 1):
         lr = LEARNING_RATE * (1 - (global_step - 1) / total_batches)
@@ -90,7 +103,13 @@ def train_year(year: int, device: str = "cuda") -> None:
         if global_step % 10_000 == 0:
             avg_loss = (running_loss / 10_000).item()
             print(f"  Step {global_step:>8,} / {total_batches:,} | Loss {avg_loss:.4f} | LR {lr:.6f}")
+            if writer is not None:
+                writer.add_scalar("loss/train", avg_loss, global_step)
+                writer.add_scalar("lr", lr, global_step)
             running_loss.zero_()
+
+    if writer is not None:
+        writer.close()
 
     EMBEDDINGS_DIR.mkdir(parents=True, exist_ok=True)
     embeddings = model.center_embeddings.weight.detach().cpu().numpy()

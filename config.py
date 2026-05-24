@@ -25,3 +25,4 @@ MODELS_DIR = Path("models")
 EMBEDDINGS_DIR = MODELS_DIR / "embeddings"
 ALIGNED_DIR = MODELS_DIR / "aligned"
 DRIFT_DIR = MODELS_DIR / "drift"
+TENSORBOARD_DIR = Path("runs")
