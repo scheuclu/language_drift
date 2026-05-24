@@ -1,7 +1,7 @@
 """Precompute per-word JSON shards for the language-drift web app.
 
 Outputs (under web/public/data/):
-  manifest.json                  -- search index: word, freq_2013, freq_max, total_drift
+  manifest.json                  -- search index: word, freq_first_year, freq_max, total_drift
   drift_gallery.json             -- top 2000 by total drift (for the gallery view)
   words/<word>.json              -- per-word: freq_by_year, drift_from_base, neighbors_by_year
 
@@ -19,7 +19,7 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from config import ALIGNED_DIR, TOKENS_DIR, VOCAB_DIR, YEARS
+from config import ALIGNED_DIR, ANCHOR_YEAR, TOKENS_DIR, VOCAB_DIR, YEARS
 from pipeline.vocab import load_vocab
 
 MIN_FREQ_ANYWHERE = 3000
@@ -110,7 +110,7 @@ def main() -> None:
         torch.cuda.empty_cache()
 
     print("computing drift trajectories...")
-    base_yi = 0
+    base_yi = YEARS.index(ANCHOR_YEAR) if ANCHOR_YEAR in YEARS else 0
     base_embeds = all_embeds[base_yi]
     base_norms = np.linalg.norm(base_embeds, axis=1) + 1e-12
     drift_traj: dict[int, dict[str, float]] = {}
@@ -142,7 +142,8 @@ def main() -> None:
         freq_arr = [int(freq_matrix[wid, yi]) for yi in range(len(YEARS))]
         drift_arr = [
             round(drift_traj[wid][str(YEARS[yi])], DRIFT_DECIMALS)
-            for yi in range(1, len(YEARS))
+            for yi in range(len(YEARS))
+            if yi != base_yi
         ]
         nbrs_arr = [
             [[n, round(s, SIM_DECIMALS)] for n, s in per_word_neighbors[wid][year]]
@@ -176,7 +177,7 @@ def main() -> None:
         json.dump(
             {
                 "years": [int(y) for y in YEARS],
-                "base_year": int(YEARS[0]),
+                "base_year": int(ANCHOR_YEAR),
                 "n_words": len(manifest_words),
                 "words": manifest_words,
             },

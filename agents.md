@@ -7,8 +7,8 @@ Measure how English language usage shifts over time by training word embeddings 
 ## Data
 
 - **Source**: [HuggingFaceFW/fineweb](https://huggingface.co/datasets/HuggingFaceFW/fineweb) — large-scale English web corpus derived from Common Crawl.
-- **Approach**: Stream data per crawl year (2013–2025), filter to high-confidence English (`language_score >= 0.65`), target ~1B tokens per year.
-- **Crawl configs**: One per Common Crawl snapshot, named `CC-MAIN-YYYY-WW`. Multiple snapshots may exist per year (2 in 2013, ~9-10 in later years).
+- **Approach**: Stream data per crawl year (2014–2025), filter to high-confidence English (`language_score >= 0.65`), target ~1B tokens per year. 2013 is excluded — too few CC-MAIN snapshots to produce a comparable yearly embedding.
+- **Crawl configs**: One per Common Crawl snapshot, named `CC-MAIN-YYYY-WW`. Multiple snapshots per year (~9-10 typical).
 
 ## Pipeline
 
@@ -23,8 +23,8 @@ Measure how English language usage shifts over time by training word embeddings 
 - Checkpoint progress for resume on failure
 
 **1B — Build Shared Vocabulary** (depends on all of 1A)
-- Load all 13 per-year frequency files
-- Include words appearing in >= 12 of 13 years with freq >= 50
+- Load all 12 per-year frequency files
+- Include words appearing in >= 11 of 12 years with freq >= 50
 - Cap at 200K words, sorted by total frequency
 - ID 0 = `<UNK>`
 
@@ -49,13 +49,13 @@ Measure how English language usage shifts over time by training word embeddings 
 ### Stage 3: Alignment & Drift
 
 **3A — Orthogonal Procrustes Alignment**
-- Anchor alignment: align all years to 2013 as reference
+- Anchor alignment: align all years to `ANCHOR_YEAR` (2018) as reference
 - SVD of cross-covariance matrix: `U, _, Vt = svd(W_ref.T @ W_t)`, `R = Vt.T @ U.T`
 - Verify alignment quality using stable anchor words (function words)
 
 **3B — Drift Metrics**
 - Cosine distance between consecutive years per word
-- Cosine distance from base year (2013) per word
+- Cosine distance from base year (2018) per word
 - Total drift, max single-year drift, mean drift
 - Output as Parquet files
 
@@ -95,8 +95,8 @@ language_drift/
     drift.py                     # Cosine distance drift metrics
 
   scripts/                       # CLI entry points
-    run_data_pipeline.py         # --year 2013 | --all | --build-vocab | --encode
-    run_training.py              # --year 2013 | --all | --device cuda
+    run_data_pipeline.py         # --year 2014 | --all | --build-vocab | --encode
+    run_training.py              # --year 2014 | --all | --device cuda
     run_analysis.py              # --align | --drift | --all
 
   data/                          # gitignored
@@ -122,7 +122,7 @@ language_drift/
 ## Estimated Resources
 
 - **Disk:** ~100 GB total (90 GB data, 6 GB models)
-- **Training time:** ~1-3 hours per year on DGX Spark, ~13-39 hours total
+- **Training time:** ~1-3 hours per year on DGX Spark, ~12-36 hours total
 - **RAM:** ~4 GB per year loaded into memory during training (128 GB available)
 - **GPU memory:** minimal (~480 MB for model)
 
