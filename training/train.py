@@ -1,4 +1,6 @@
 import json
+import math
+import os
 import random
 
 import numpy as np
@@ -39,8 +41,29 @@ def set_seed(seed: int) -> None:
         torch.backends.cudnn.benchmark = False
 
 
+def _lr_at(step: int, total: int, peak: float, floor: float, schedule: str, warmup_frac: float) -> float:
+    warmup_steps = max(1, int(total * warmup_frac))
+    if step <= warmup_steps:
+        return peak * step / warmup_steps
+    progress = (step - warmup_steps) / max(1, total - warmup_steps)
+    progress = min(max(progress, 0.0), 1.0)
+    if schedule == "cosine":
+        lr = floor + 0.5 * (peak - floor) * (1.0 + math.cos(math.pi * progress))
+    elif schedule == "linear":
+        lr = peak * (1.0 - progress)
+    else:
+        raise ValueError(f"Unknown LR_SCHEDULE: {schedule}")
+    return max(lr, floor)
+
+
 def train_year(year: int, device: str = "cuda") -> None:
     set_seed(SEED)
+
+    schedule = os.environ.get("LR_SCHEDULE", "cosine")
+    peak_lr = float(os.environ.get("LR_PEAK", LEARNING_RATE))
+    floor_lr = float(os.environ.get("LR_FLOOR", 1e-5))
+    warmup_frac = float(os.environ.get("LR_WARMUP_FRAC", 0.05))
+    tb_tag = os.environ.get("TB_RUN_TAG", "")
 
     vocab = load_vocab(VOCAB_DIR / "vocab.json")
     vocab_size = len(vocab)
@@ -78,16 +101,25 @@ def train_year(year: int, device: str = "cuda") -> None:
 
     print(f"Training year {year}: {total_batches:,} batches, device={device}")
 
+    print(
+        f"  LR schedule: {schedule} | peak={peak_lr:g} | floor={floor_lr:g} "
+        f"| warmup_frac={warmup_frac:g} | total_batches={total_batches:,}",
+        flush=True,
+    )
+
     writer = None
     if _HAS_TB:
-        log_dir = TENSORBOARD_DIR / f"year_{year}"
+        run_name = f"year_{year}_{tb_tag}" if tb_tag else f"year_{year}"
+        log_dir = TENSORBOARD_DIR / run_name
         log_dir.mkdir(parents=True, exist_ok=True)
         writer = SummaryWriter(log_dir=str(log_dir))
 
-    running_loss = torch.zeros((), device=device)
+    tb_window = 1_000
+    print_window = 10_000
+    tb_running_loss = torch.zeros((), device=device)
+    print_running_loss = torch.zeros((), device=device)
     for global_step in range(1, total_batches + 1):
-        lr = LEARNING_RATE * (1 - (global_step - 1) / total_batches)
-        lr = max(lr, 1e-4)
+        lr = _lr_at(global_step, total_batches, peak_lr, floor_lr, schedule, warmup_frac)
         for pg in optimizer.param_groups:
             pg["lr"] = lr
 
@@ -98,15 +130,21 @@ def train_year(year: int, device: str = "cuda") -> None:
         loss.backward()
         optimizer.step()
 
-        running_loss += loss.detach()
+        loss_detached = loss.detach()
+        tb_running_loss += loss_detached
+        print_running_loss += loss_detached
 
-        if global_step % 10_000 == 0:
-            avg_loss = (running_loss / 10_000).item()
-            print(f"  Step {global_step:>8,} / {total_batches:,} | Loss {avg_loss:.4f} | LR {lr:.6f}")
+        if global_step % tb_window == 0:
+            avg_loss = (tb_running_loss / tb_window).item()
             if writer is not None:
                 writer.add_scalar("loss/train", avg_loss, global_step)
                 writer.add_scalar("lr", lr, global_step)
-            running_loss.zero_()
+            tb_running_loss.zero_()
+
+        if global_step % print_window == 0:
+            avg_loss = (print_running_loss / print_window).item()
+            print(f"  Step {global_step:>8,} / {total_batches:,} | Loss {avg_loss:.4f} | LR {lr:.6f}", flush=True)
+            print_running_loss.zero_()
 
     if writer is not None:
         writer.close()
