@@ -5,17 +5,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { loadManifest } from "@/lib/data";
 import { loadSpace, type SpaceData } from "@/lib/space";
 import type { Manifest } from "@/lib/types";
-import type { RGB } from "@/components/Space3D";
+import type { RGB } from "@/components/Space";
 
 const MARK_PALETTE = [
-  "#ffd45d", // amber
-  "#ff5da2", // hot pink
-  "#5dd5e8", // cyan
-  "#a0ff5d", // lime
-  "#ff8a5d", // coral
-  "#c084ff", // purple
-  "#5dffd9", // mint
-  "#ff5d5d", // red
+  "#ffd45d",
+  "#ff5da2",
+  "#5dd5e8",
+  "#a0ff5d",
+  "#ff8a5d",
+  "#c084ff",
+  "#5dffd9",
+  "#ff5d5d",
 ];
 
 function hexToRgb(hex: string): RGB {
@@ -23,8 +23,8 @@ function hexToRgb(hex: string): RGB {
   return [((n >> 16) & 0xff) / 255, ((n >> 8) & 0xff) / 255, (n & 0xff) / 255];
 }
 
-const Space3D = dynamic(
-  () => import("@/components/Space3D").then((m) => m.Space3D),
+const Space = dynamic(
+  () => import("@/components/Space").then((m) => m.Space),
   { ssr: false },
 );
 
@@ -68,8 +68,6 @@ export default function SpacePage() {
     return m;
   }, [data]);
 
-  // Only marked words present in space (skip any that aren't in vocab).
-  // markedVisible is parallel to markedIndices / markedColors / markedHex.
   const { markedIndices, markedColors, markedHex, markedVisible } = useMemo(() => {
     const ids: number[] = [];
     const cols: RGB[] = [];
@@ -98,7 +96,6 @@ export default function SpacePage() {
     setMarked((prev) => prev.filter((x) => x !== w));
   };
 
-  // Year playback loop.
   useEffect(() => {
     if (!playing || !data) return;
     const tick = () => {
@@ -122,13 +119,13 @@ export default function SpacePage() {
   const currentYear = years[yearIndex];
   const hoveredWord = data && hoveredIdx !== null ? data.index.words[hoveredIdx] : null;
   const hoveredDrift = hoveredWord ? driftByWord.get(hoveredWord) : undefined;
+  const nWords = data?.index.n_words ?? 0;
 
   return (
     <main className="h-screen w-screen overflow-hidden relative bg-[#070707]">
-      {/* canvas fills the screen */}
       <div className="absolute inset-0">
         {data && manifest ? (
-          <Space3D
+          <Space
             data={data}
             yearIndex={yearIndex}
             hoveredIdx={hoveredIdx}
@@ -140,27 +137,25 @@ export default function SpacePage() {
           />
         ) : (
           <div className="absolute inset-0 grid place-items-center text-muted text-sm font-mono">
-            {error ?? "loading 19,663 points · 13 years…"}
+            {error ?? "loading projection…"}
           </div>
         )}
       </div>
 
-      {/* top overlay */}
       <header className="absolute top-16 left-6 lg:left-10 pointer-events-none">
         <div className="text-[10px] uppercase tracking-[0.18em] text-muted font-mono mb-1">
           space
         </div>
         <h1 className="font-display text-2xl lg:text-3xl leading-none">
-          19,663 words. One UMAP. Thirteen years.
+          {nWords.toLocaleString()} words. One UMAP. Twelve years.
         </h1>
         <p className="text-foreground/55 text-xs mt-2 max-w-md leading-relaxed">
-          Every word that survived the freq filter, projected from 300d to 3d
-          jointly across all years. Drag to orbit. Scroll the year slider to
-          watch the cloud breathe.
+          Every word that survived the freq filter, projected from 300d to 2d
+          jointly across all years. Drag to pan, scroll to zoom, click any
+          point to pin. Scrub the year slider to watch the cloud breathe.
         </p>
       </header>
 
-      {/* marked list */}
       <div className="absolute left-6 lg:left-10 top-1/2 -translate-y-1/2 pointer-events-auto max-w-[180px]">
         <div className="text-[10px] uppercase tracking-widest text-muted font-mono mb-2">
           marked
@@ -196,7 +191,6 @@ export default function SpacePage() {
         )}
       </div>
 
-      {/* hover card */}
       {hoveredWord && (
         <div className="absolute bottom-28 left-1/2 -translate-x-1/2 pointer-events-none backdrop-blur-md bg-black/55 border border-white/10 rounded-lg px-4 py-2 text-sm font-mono">
           <span className="text-foreground">{hoveredWord}</span>
@@ -206,7 +200,6 @@ export default function SpacePage() {
         </div>
       )}
 
-      {/* year scrubber */}
       {data && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[min(80vw,720px)] backdrop-blur-md bg-black/45 border border-white/10 rounded-xl px-4 py-3 flex items-center gap-3">
           <button

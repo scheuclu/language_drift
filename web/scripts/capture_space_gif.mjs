@@ -56,7 +56,7 @@ for (let yi = 1; yi <= max; yi++) {
   await shoot(`yi=${yi} settled`);
 }
 
-// loop back to 2013 for a clean cycle
+// loop back to first year for a clean cycle
 await slider.evaluate((el, v) => {
   const input = /** @type {HTMLInputElement} */ (el);
   input.value = String(v);

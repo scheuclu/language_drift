@@ -2,9 +2,9 @@
 
 **[→ Live demo: language-drift.vercel.app](https://language-drift.vercel.app)**
 
-Thirteen separate Word2Vec models — one per year, 2013 through 2025, trained on a billion tokens of Common Crawl each — aligned into a shared coordinate system so the same word has 13 comparable positions. The result is a quantitative, interactive view of how English usage actually changed over the last decade.
+Twelve separate Word2Vec models — one per year, 2014 through 2025, trained on a billion tokens of Common Crawl each — aligned into a shared coordinate system so the same word has 12 comparable positions. The result is a quantitative, interactive view of how English usage actually changed over the last decade.
 
-`PyTorch · Word2Vec (SGNS) · Orthogonal Procrustes · UMAP · Next.js · Three.js · D3 · Framer Motion`
+`PyTorch · Word2Vec (SGNS) · Orthogonal Procrustes · UMAP · Next.js · D3 · Framer Motion`
 
 ![Language Drift — landing](docs/img/landing.png)
 
@@ -14,43 +14,45 @@ Thirteen separate Word2Vec models — one per year, 2013 through 2025, trained o
 |---|---|
 | ![explore](docs/img/explore.png) | **`/explore` — constellation view.** Pick a word; scroll to scrub through the years. Watch a word's nearest neighbors fly in and out as its meaning shifts. Click any neighbor to dive into it. |
 | ![ternary](docs/img/ternary.png) | **`/ternary` — three-pole projection.** Pick three anchor words (e.g. `halloween`, `virus`, `cloth`) and a target (`mask`). Each year's barycentric position is the target's cosine similarity to each anchor, projected into the triangle. The COVID arc is dead-obvious. |
-| ![space](docs/img/space.gif) | **`/space` — 3D embedding cloud.** All 19,663 vocabulary words projected to 3D via UMAP, jointly across all years. Hit play and the cloud breathes between 2013 and 2025 as each word interpolates along its 13-year path. Mark words to follow them through the cloud. |
+| ![space](docs/img/space.gif) | **`/space` — embedding cloud.** All 19,595 vocabulary words projected to 2D via UMAP, jointly across all years. Hit play and the cloud breathes between 2014 and 2025 as each word interpolates along its 12-year path. Drag to pan, scroll to zoom, click any point to pin. |
 
 ## Findings
 
-The pipeline gives a noise floor (stable words drift ~0.10 per year-pair under Procrustes alignment) and a signal ceiling (real neologisms shift 5–10× harder). A few examples, total cosine drift summed across 12 year-pairs:
+The pipeline gives a noise floor (stable words drift ~0.10 per year-pair under Procrustes alignment) and a signal ceiling (real neologisms shift 5–10× harder). A few examples, total cosine drift summed across 11 year-pairs:
 
 | Word | Total drift | What changed |
 |---|---|---|
-| `nft` | **11.19** | Pre-2020: barely exists in the corpus. 2021+: cluster centered on art, blockchain, scam. |
-| `crypto` | **9.33** | "Cryptography → currency" in five years. |
-| `lockdown` | **8.59** | From "prison protocol" to "everyday word." |
-| `mask` | **4.33** | A disguise (halloween, costume) → a cloth covering (surgical, wearing, virus). |
-| `zoom` | **4.71** | A verb meaning "go fast" → a noun meaning "meeting." |
-| `woke` | **3.78** | Past tense of wake → cultural flag. |
-| `music` | 1.10 | Anchor word — sits right at the noise floor. |
-| `father` | 1.15 | Anchor word — barely moves. |
+| `nft` | **7.11** | Pre-2020: barely exists in the corpus. 2021+: cluster centered on art, blockchain, scam. |
+| `lockdown` | **5.60** | From "prison protocol" to "everyday word." |
+| `crypto` | **4.46** | "Cryptography → currency" in five years. |
+| `pandemic` | **4.27** | Public-health term → era marker. |
+| `biden` | **3.65** | Vice president → president → political shorthand. |
+| `woke` | **3.59** | Past tense of wake → cultural flag. |
+| `mask` | **3.47** | A disguise (halloween, costume) → a cloth covering (surgical, wearing, virus). |
+| `zoom` | **3.26** | A verb meaning "go fast" → a noun meaning "meeting." |
+| `music` | 1.00 | Anchor word — sits right at the noise floor. |
+| `father` | 1.07 | Anchor word — barely moves. |
 
-The site lets you drive these comparisons yourself across all 19,663 eligible words.
+The site lets you drive these comparisons yourself across all 19,595 eligible words.
 
 ## How the pipeline works
 
 ```
-FineWeb (Common Crawl, 2013–2025)
+FineWeb (Common Crawl, 2014–2025)
    │
    ▼
 1. Stream + tokenize ~1B tokens/year, language-filtered (score ≥ 0.65)
    │
    ▼
-2. Build a single shared vocabulary across all 13 years
-   (~120K tokens that appear in ≥12 years with freq ≥50)
+2. Build a single shared vocabulary across all 12 years
+   (~120K tokens that appear in ≥11 years with freq ≥50)
    │
    ▼
 3. Train one Word2Vec SGNS per year on GPU
-   (300d, window 5, 5 negatives, in-RAM map-style dataset)
+   (300d, window 10, 15 negatives, in-RAM map-style dataset)
    │
    ▼
-4. Procrustes-align every year onto 2013's coordinate system
+4. Procrustes-align every year onto 2018's coordinate system
    (orthogonal rotation on L2-normalized embeddings)
    │
    ▼
@@ -60,7 +62,7 @@ FineWeb (Common Crawl, 2013–2025)
 6. Precompute the static JSON / binary shards the web app reads
 ```
 
-Step 4 is what most "train Word2Vec on a corpus" tutorials skip — and it's the only reason any of this is comparable. Each year's independently-trained model lives in its own arbitrarily-rotated coordinate system, so raw cosines across years are noise. Procrustes finds the orthogonal rotation that lines them up, anchored on a stable reference year (2013). Without it, the drift signal vanishes into the alignment noise.
+Step 4 is what most "train Word2Vec on a corpus" tutorials skip — and it's the only reason any of this is comparable. Each year's independently-trained model lives in its own arbitrarily-rotated coordinate system, so raw cosines across years are noise. Procrustes finds the orthogonal rotation that lines them up, anchored on a stable reference year (2018, chosen because it sits centrally in the range and has many CC-MAIN snapshots). Without it, the drift signal vanishes into the alignment noise.
 
 The web app is fully static: every page prerenders, and per-word data ships as JSON + float32 binary shards under `/data/` so client-side cosine math (the `/ternary` view) runs without a server.
 
@@ -71,7 +73,7 @@ The web app is fully static: every page prerenders, and per-word data ships as J
 | Data | FineWeb / Common Crawl, HuggingFace `datasets`, Python 3.13, `uv` |
 | Training | PyTorch (Skip-gram + Negative Sampling), CUDA, dense Adam |
 | Analysis | NumPy, SciPy, scikit-learn, UMAP, pandas (parquet) |
-| Frontend | Next.js 16 (App Router), TypeScript, Tailwind v4, Framer Motion, D3, Three.js + react-three-fiber + drei |
+| Frontend | Next.js 16 (App Router), TypeScript, Tailwind v4, Framer Motion, D3 (zoom + quadtree) |
 | Deploy | Vercel (Git integration, auto-deploy on `main`) |
 
 ## Running it yourself
@@ -95,7 +97,7 @@ Stream and tokenize (resumable):
 
 ```bash
 uv run python scripts/run_data_pipeline.py --all              # all years
-uv run python scripts/run_data_pipeline.py --year 2013        # one year
+uv run python scripts/run_data_pipeline.py --year 2014        # one year
 ```
 
 Outputs per year: `data/tokens/{year}_tokenized.txt.gz`, `data/tokens/{year}_freqs.json`.
@@ -125,10 +127,10 @@ Hyperparameters live in `config.py`:
 | | |
 |---|---|
 | Embedding dim | 300 |
-| Window | 5 |
-| Negative samples | 5 |
+| Window | 10 |
+| Negative samples | 15 |
 | Batch size | 32,768 |
-| Learning rate | 0.0075 (linear decay) |
+| Learning rate | 0.0075 (cosine + 5% warmup, floor 1e-5) |
 | Epochs | 3 |
 
 ### Stage 3 — Alignment + drift
@@ -146,7 +148,7 @@ These three scripts take the aligned embeddings and emit everything the web app 
 ```bash
 uv run python scripts/precompute_web_data.py   # manifest + per-word JSONs
 uv run python scripts/precompute_vectors.py    # per-word aligned vectors (.bin)
-uv run python scripts/precompute_tsne.py       # joint 3D UMAP for /space
+uv run python scripts/precompute_tsne.py       # joint 2D UMAP for /space
 ```
 
 After retraining, re-run these three and commit the new snapshot — Vercel auto-deploys.

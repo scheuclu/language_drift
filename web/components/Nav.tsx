@@ -28,7 +28,7 @@ export function Nav() {
             const active =
               l.href === "/"
                 ? pathname === "/"
-                : pathname.startsWith(l.href);
+                : pathname === l.href || pathname.startsWith(l.href + "/");
             return (
               <li key={l.href}>
                 <Link
