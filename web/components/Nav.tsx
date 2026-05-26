@@ -7,6 +7,7 @@ const LINKS = [
   { href: "/", label: "story" },
   { href: "/explore", label: "explore" },
   { href: "/ternary", label: "ternary" },
+  { href: "/arith", label: "arith" },
   { href: "/space", label: "space" },
   { href: "/gallery", label: "gallery" },
 ];

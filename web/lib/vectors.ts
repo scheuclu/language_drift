@@ -1,6 +1,6 @@
-// 13 years × 300 dims, C-order float32 = 15600 bytes
+// 12 years × 300 dims, C-order float32 = 14400 bytes
 const DIM = 300;
-const N_YEARS = 13;
+const N_YEARS = 12;
 const FILE_BYTES = N_YEARS * DIM * 4;
 
 export type YearVecs = Float32Array; // length N_YEARS * DIM
