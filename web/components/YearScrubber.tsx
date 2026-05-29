@@ -55,7 +55,7 @@ export function YearScrubber({
                 borderBottom: "5px solid transparent",
               }}
             />
-            <span>play 2013–2025</span>
+            <span>play 2014–2025</span>
           </>
         )}
       </button>

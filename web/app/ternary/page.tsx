@@ -18,8 +18,8 @@ import {
 } from "@/lib/vectors";
 import type { Manifest, ManifestWord } from "@/lib/types";
 
-const DEFAULT_ANCHORS: [string, string, string] = ["halloween", "virus", "cloth"];
-const DEFAULT_TARGETS = ["mask"];
+const DEFAULT_ANCHORS: [string, string, string] = ["airline", "variant", "cannabis"];
+const DEFAULT_TARGETS = ["delta"];
 const TARGET_COLORS = ["#f4b860", "#ff5da2", "#5dd5e8"];
 const MAX_TARGETS = 3;
 
@@ -66,7 +66,7 @@ export default function TernaryPage() {
   }, [anchors, targets, vectors, missing]);
 
   const years = useMemo(
-    () => manifest?.years ?? Array.from({ length: VECTOR_N_YEARS }, (_, i) => 2013 + i),
+    () => manifest?.years ?? Array.from({ length: VECTOR_N_YEARS }, (_, i) => 2014 + i),
     [manifest],
   );
 
@@ -127,7 +127,7 @@ export default function TernaryPage() {
             ternary
           </div>
           <h1 className="font-display text-2xl lg:text-3xl leading-none">
-            Three poles. One word. Thirteen years.
+            Three poles. One word. Twelve years.
           </h1>
         </div>
         <p className="text-foreground/60 text-xs lg:text-sm max-w-md leading-relaxed text-right">

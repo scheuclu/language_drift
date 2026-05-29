@@ -24,43 +24,43 @@ type Chapter = {
 const CHAPTERS: Chapter[] = [
   {
     yearIndex: 0,
-    year: 2013,
+    year: 2014,
     kicker: "Before everything",
-    title: "A mask was a disguise.",
+    title: "A mask went on your skin.",
     body:
-      "It traveled with halloween, theater, masquerade. Or — in a darker register — gas, anonymous, motorcycle. Either way: a face you put on. Something you took off.",
+      "In the early 2010s the word lived in the bathroom cabinet — skin, facial, lip, makeup, hair. A mask was a beauty product: something you spread on, waited out, and rinsed off.",
   },
   {
-    yearIndex: 4,
-    year: 2017,
+    yearIndex: 5,
+    year: 2019,
     kicker: "Quiet drift",
-    title: "Same neighborhood, almost.",
+    title: "Ten years in the cabinet.",
     body:
-      "Through the mid-2010s, mask sat steadily among gloves, layers, makeup, shadows. The word was stable. Nothing happens in this chapter — and that's the point.",
+      "Through the 2010s mask barely moves — lotion, cleanser, glow, shampoo, soap. The neighborhood is skincare and it stays skincare. Nothing happens in this chapter — and that's the point.",
   },
   {
-    yearIndex: 7,
+    yearIndex: 6,
     year: 2020,
     kicker: "Spring 2020",
     title: "Everything pivots in three months.",
     body:
-      "By mid-year, the cluster has been replaced. Wearing. Coverings. Protective. Disposable. A noun that was metaphorical for a decade becomes one of the most concrete in English.",
+      "Mid-year a second cluster crashes in next to the lotions — wearing, protective, sanitizer, gloves, disposable. For the first time the word is about covering your face, not treating it.",
   },
   {
-    yearIndex: 8,
+    yearIndex: 7,
     year: 2021,
     kicker: "The full reorientation",
-    title: "Mandate. Distance. N95.",
+    title: "Cloth. Disposable. PPE.",
     body:
-      "Top neighbors are now masks, face, wearing, disposable, protective, coverings, masking, gloves, facial, wash, sanitizer, distancing, nose, cloth. The original disguise meaning has gone almost entirely.",
+      "By 2021 the top neighbors are wearing, protective, disposable, wash, cloth, ppe, gloves, nose. A cosmetic noun has become one of the most concrete words in English — and the skincare sense is pushed to the back.",
   },
   {
-    yearIndex: 12,
+    yearIndex: 11,
     year: 2025,
     kicker: "After",
-    title: "The word never goes back.",
+    title: "The word never fully goes back.",
     body:
-      "Disguise drifts in faintly. PPE drifts down. But the embedding never returns to 2013. The word is permanently bilingual now: face-covering and face-covering-up.",
+      "Skincare returns to the front — facial, makeup, lotion, serum — but wearing and protective never leave. Mask is permanently bilingual now: the thing you put on your face, and the thing you put over it.",
   },
 ];
 
@@ -98,7 +98,7 @@ export default function LandingPage() {
           className="max-w-3xl"
         >
           <div className="text-accent text-xs font-mono uppercase tracking-[0.25em] mb-6">
-            Word2Vec · 2013 → 2025
+            Word2Vec · 2014 → 2025
           </div>
           <h1 className="font-display text-[clamp(48px,8vw,120px)] leading-[0.95] tracking-tight">
             English changes
@@ -106,7 +106,7 @@ export default function LandingPage() {
             <em>while you're looking away.</em>
           </h1>
           <p className="text-foreground/70 text-lg lg:text-xl mt-8 max-w-2xl mx-auto leading-relaxed">
-            Thirteen separate Word2Vec models, one per year, trained on a
+            Twelve separate Word2Vec models, one per year, trained on a
             billion tokens of Common Crawl each. Below: <em>mask</em> — and the
             company it kept, year by year.
           </p>
@@ -169,14 +169,15 @@ export default function LandingPage() {
           method
         </div>
         <p>
-          For each year 2013–2025, we train a fresh skip-gram-with-negative-sampling
-          Word2Vec (300d, window 5, 5 negatives) on a 1B-token slice of Common
-          Crawl. The 13 resulting spaces are aligned with orthogonal Procrustes
-          so 2013's coordinate system is the reference. Cosine distance between
-          a word's 2013 and 2025 vectors is its "drift." Stable anchor words
-          like <em>music</em> or <em>father</em> drift around 0.10 — that's the
-          noise floor of the method. Anything above ~0.30 is a real semantic
-          shift you can usually narrate.
+          For each year 2014–2025, we train a fresh skip-gram-with-negative-sampling
+          Word2Vec (300d, window 10, 15 negatives) on a 1B-token slice of Common
+          Crawl. The 12 resulting spaces are aligned with orthogonal Procrustes
+          so 2018's coordinate system is the reference. A word's drift in a given
+          year is the cosine distance from its 2018 vector; the total we rank by
+          sums that across the other eleven years. Stable anchors like{" "}
+          <em>music</em> or <em>father</em> total around 1.0 — the noise floor of
+          the method. The biggest movers — <em>defi</em>, <em>nft</em>,{" "}
+          <em>distancing</em>, <em>omicron</em> — clear 9.
         </p>
       </section>
     </main>
@@ -228,10 +229,10 @@ const MORE_STORIES = [
     blurb: "Cryptography → currency, in five years.",
   },
   { word: "lockdown", blurb: "An emergency protocol becomes everyday." },
-  { word: "woke", blurb: "Past tense → cultural flag." },
+  { word: "chain", blurb: "Retail stores → supply-chain logistics." },
   { word: "zoom", blurb: "A verb. Then a meeting." },
-  { word: "viral", blurb: "From disease to TikTok." },
-  { word: "remote", blurb: "Distant → daily." },
+  { word: "viral", blurb: "From outbreaks to Instagram." },
+  { word: "token", blurb: "A software token → a crypto token." },
 ];
 
 function MoreStoriesGrid() {

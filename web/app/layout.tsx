@@ -21,9 +21,9 @@ const instrument = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "Language Drift — watching English change, 2013–2025",
+  title: "Language Drift — watching English change, 2014–2025",
   description:
-    "Per-year Word2Vec embeddings trained on Common Crawl. Type a word and see how its neighbors shift over thirteen years.",
+    "Per-year Word2Vec embeddings trained on Common Crawl. Type a word and see how its neighbors shift over twelve years.",
 };
 
 export default function RootLayout({

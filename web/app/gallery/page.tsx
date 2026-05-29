@@ -7,10 +7,9 @@ import type { DriftGallery, Manifest, ManifestWord } from "@/lib/types";
 
 const FREQ_TIERS = [
   { label: "any (≥ 3k)", value: 3000 },
+  { label: "≥ 5k/yr", value: 5000 },
   { label: "≥ 10k/yr", value: 10000 },
-  { label: "≥ 50k/yr", value: 50000 },
-  { label: "≥ 200k/yr", value: 200000 },
-  { label: "≥ 1M/yr", value: 1_000_000 },
+  { label: "≥ 20k/yr", value: 20000 },
 ];
 
 export default function GalleryPage() {
@@ -40,13 +39,27 @@ export default function GalleryPage() {
         gallery
       </div>
       <h1 className="font-display text-3xl lg:text-4xl leading-none mb-2">
-        Top drifters, 2013 → 2025.
+        Top drifters, 2014 → 2025.
       </h1>
       <p className="text-muted text-sm lg:text-base max-w-2xl">
         Ranked by total cosine distance summed across all years. Frequency
-        filter on the right — at low thresholds you get typos and rare names;
-        push it up to find genuine cultural shifts.
+        filter below — at low thresholds you get rare names; push it up to find
+        the words that moved most while staying common.
       </p>
+
+      <div className="mt-6 max-w-2xl rounded-xl border border-accent/25 bg-accent/[0.04] p-4 lg:p-5">
+        <div className="text-[10px] uppercase tracking-[0.18em] text-accent font-mono mb-1.5">
+          why so many odd words?
+        </div>
+        <p className="text-foreground/70 text-sm leading-relaxed">
+          Many of the biggest post-2022 drifters aren&apos;t events — they&apos;re
+          words large language models overuse: <em>delve</em>,{" "}
+          <em>underscores</em>, <em>resonates</em>, <em>prioritizing</em>,{" "}
+          <em>multifaceted</em>. As AI-generated text floods Common Crawl, their
+          company blurs toward a flat, promotional register. You&apos;re watching
+          the web start to sound like ChatGPT.
+        </p>
+      </div>
 
       <div className="mt-8 flex flex-wrap items-center gap-2">
         {FREQ_TIERS.map((t) => (

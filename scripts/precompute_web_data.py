@@ -30,6 +30,24 @@ CHUNK_SIZE = 1024
 WORD_RE = re.compile(r"^[a-z]{3,20}$")
 OUT_DIR = Path(__file__).resolve().parent.parent / "web" / "public" / "data"
 
+# Words that pass the freq/regex filters and rank high on drift but are noise,
+# not cultural shifts: online-gambling/casino SEO spam, affiliate/forum-template
+# cruft, and detokenization fragments. Excluded from the gallery only — they
+# remain in the manifest so explore/search can still resolve them. (LLM-register
+# words like "delve"/"underscores" are intentionally NOT here; their drift is a
+# real signal the gallery surfaces on purpose.)
+GALLERY_DENYLIST = {
+    # online gambling / casino
+    "rtp", "pokies", "baccarat", "bankroll", "wagers", "wagering", "aviator",
+    "crushers", "bonanza", "rng", "toto", "payouts", "jackpots", "slots",
+    # affiliate / SEO / forum-template cruft
+    "backpage", "funnels", "faqs", "suppressant", "vbulletin", "disqus",
+    "wikia", "uncategorized", "pingback",
+    # detokenization fragments / chat abbreviations
+    "quot", "fml", "dhu", "lso", "ene", "dic", "ntn", "nsk", "abr",
+    "youll", "couldnt", "ment", "fag",
+}
+
 
 def is_clean(word: str) -> bool:
     return bool(WORD_RE.match(word))
@@ -186,7 +204,10 @@ def main() -> None:
         )
 
     print("writing drift_gallery.json...")
-    gallery = sorted(manifest_words, key=lambda x: -x["d"])[:2000]
+    gallery = [
+        w for w in sorted(manifest_words, key=lambda x: -x["d"])
+        if w["w"] not in GALLERY_DENYLIST
+    ][:2000]
     with open(OUT_DIR / "drift_gallery.json", "w") as f:
         json.dump({"top": gallery}, f, separators=(",", ":"))
 

@@ -4,9 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { loadArithCorpus, arithmeticTopK, type ArithCorpus, type Term } from "@/lib/arith";
 
 const DEFAULT_TERMS: Term[] = [
-  { sign: 1, word: "apple" },
-  { sign: -1, word: "fruit" },
-  { sign: 1, word: "computer" },
+  { sign: 1, word: "usa" },
+  { sign: -1, word: "rich" },
 ];
 
 const ARITH_YEAR = 2025;
