@@ -9,7 +9,9 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
+            // Data files mutate at fixed paths (retrains, format changes), so they
+            // must NOT be immutable — revalidate every load (cheap 304s via ETag).
+            value: "public, max-age=0, must-revalidate",
           },
         ],
       },

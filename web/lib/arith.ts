@@ -21,8 +21,8 @@ export function loadArithCorpus(): Promise<ArithCorpus | null> {
   cache = (async () => {
     try {
       const [idxRes, binRes] = await Promise.all([
-        fetch("/data/space_index.json"),
-        fetch("/data/arith.bin"),
+        fetch("/data/space_index.json?v=2"),
+        fetch("/data/arith.bin?v=2"),
       ]);
       if (!idxRes.ok || !binRes.ok) return null;
       const idx = (await idxRes.json()) as { words: string[] };

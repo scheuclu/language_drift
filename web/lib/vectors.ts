@@ -16,7 +16,7 @@ export async function loadVectors(word: string): Promise<YearVecs | null> {
   if (pending) return pending;
   const p = (async () => {
     try {
-      const res = await fetch(`/data/vecs/${encodeURIComponent(key)}.bin`);
+      const res = await fetch(`/data/vecs/${encodeURIComponent(key)}.bin?v=2`);
       if (!res.ok) return null;
       const buf = await res.arrayBuffer();
       if (buf.byteLength !== FILE_BYTES) {
