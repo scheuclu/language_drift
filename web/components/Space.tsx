@@ -14,10 +14,16 @@ type Props = {
   markedIndices: number[];
   markedColors: RGB[];
   highlightedMarkedIdx: number | null;
-  onToggleMark: (idx: number) => void;
+  onToggleMark?: (idx: number) => void;
+  // --- story mode (all optional; absent => the original interactive /space) ---
+  labels?: (string | null)[]; // aligned to markedIndices
+  dimBackground?: boolean; // fade the cloud so marked words pop
+  interactive?: boolean; // default true; false => camera on rails, no user zoom
+  fitIndices?: number[] | null; // frame these words (across all years) when set
 };
 
 const TWEEN_MS = 700;
+const CAM_MS = 850;
 const HOVER_RADIUS_PX = 8;
 
 function rgbCss([r, g, b]: RGB, a: number) {
@@ -33,26 +39,51 @@ export function Space({
   markedColors,
   highlightedMarkedIdx,
   onToggleMark,
+  labels,
+  dimBackground = false,
+  interactive = true,
+  fitIndices,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
-  // Current rendered coords (tween target). Length = n_words * 2.
   const currentCoords = useRef<Float32Array | null>(null);
   const tweenFrom = useRef<Float32Array | null>(null);
   const tweenTo = useRef<Float32Array | null>(null);
   const tweenStart = useRef<number>(0);
   const tweenActive = useRef<boolean>(false);
   const prevYi = useRef<number>(yearIndex);
-  // d3-zoom transform.
   const transform = useRef<d3.ZoomTransform>(d3.zoomIdentity);
-  // Quadtree built from the current target year's coords.
   const tree = useRef<d3.Quadtree<number> | null>(null);
   const dpr = useRef<number>(1);
   const size = useRef<{ w: number; h: number }>({ w: 1, h: 1 });
+  // camera tween (story mode)
+  const camFrom = useRef<{ k: number; x: number; y: number } | null>(null);
+  const camTo = useRef<{ k: number; x: number; y: number } | null>(null);
+  const camStart = useRef<number>(0);
+  const camActive = useRef<boolean>(false);
+  const camHasFit = useRef<boolean>(false);
+
+  // keep latest draw inputs in refs so the rAF loop (mounted once) sees them
+  const draw = useRef({
+    markedIndices,
+    markedColors,
+    highlightedMarkedIdx,
+    hoveredIdx,
+    labels,
+    dimBackground,
+  });
+  draw.current = {
+    markedIndices,
+    markedColors,
+    highlightedMarkedIdx,
+    hoveredIdx,
+    labels,
+    dimBackground,
+  };
 
   const n = data.index.n_words;
 
-  // Initial / resize setup + d3-zoom binding.
+  // Initial / resize setup + (interactive only) d3-zoom binding.
   useEffect(() => {
     const canvas = canvasRef.current;
     const overlay = overlayRef.current;
@@ -69,35 +100,34 @@ export function Space({
     };
     resize();
 
-    const sel = d3.select(overlay as Element);
-    const zoom = d3
-      .zoom<HTMLDivElement, unknown>()
-      .scaleExtent([0.4, 40])
-      .filter((event) => {
-        // Allow wheel zoom + drag pan, but not on touch hold for now.
-        return !event.ctrlKey && !event.button;
-      })
-      .on("zoom", (event) => {
-        transform.current = event.transform;
-      });
-    sel.call(zoom as never);
-    sel.on("dblclick.zoom", null);
+    let sel: d3.Selection<HTMLDivElement, unknown, null, undefined> | null = null;
+    if (interactive) {
+      sel = d3.select(overlay as HTMLDivElement);
+      const zoom = d3
+        .zoom<HTMLDivElement, unknown>()
+        .scaleExtent([0.4, 40])
+        .filter((event) => !event.ctrlKey && !event.button)
+        .on("zoom", (event) => {
+          transform.current = event.transform;
+        });
+      sel.call(zoom as never);
+      sel.on("dblclick.zoom", null);
+    }
 
     const ro = new ResizeObserver(resize);
     ro.observe(overlay);
 
     return () => {
-      sel.on(".zoom", null);
+      if (sel) sel.on(".zoom", null);
       ro.disconnect();
     };
-  }, []);
+  }, [interactive]);
 
-  // When the year changes, kick off a tween.
+  // Year change -> tween coords + rebuild quadtree.
   useEffect(() => {
     if (prevYi.current === yearIndex && currentCoords.current) return;
     const target = new Float32Array(data.coords[yearIndex]);
     if (!currentCoords.current) {
-      // first paint
       currentCoords.current = target;
       tweenActive.current = false;
     } else {
@@ -107,8 +137,6 @@ export function Space({
       tweenActive.current = true;
     }
     prevYi.current = yearIndex;
-    // Rebuild quadtree on target positions so hover works mid-flight too
-    // (close enough; the tween is short).
     const t = d3
       .quadtree<number>()
       .x((i) => target[i * 2])
@@ -119,7 +147,47 @@ export function Space({
     tree.current = t;
   }, [yearIndex, data, n]);
 
-  // Render loop.
+  // Story-mode camera: frame fitIndices across ALL years (stable frame).
+  useEffect(() => {
+    if (interactive || !fitIndices || fitIndices.length === 0) return;
+    const { w, h } = size.current;
+    const pad = 0.96;
+    const half = Math.min(w, h) * 0.5 * pad;
+    const cx = w / 2;
+    const cy = h / 2;
+    let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
+    for (let yi = 0; yi < data.coords.length; yi++) {
+      const c = data.coords[yi];
+      for (const idx of fitIndices) {
+        const x = c[idx * 2], y = c[idx * 2 + 1];
+        if (x < minx) minx = x;
+        if (x > maxx) maxx = x;
+        if (y < miny) miny = y;
+        if (y > maxy) maxy = y;
+      }
+    }
+    const bx0 = cx + minx * half, bx1 = cx + maxx * half;
+    const by0 = cy + miny * half, by1 = cy + maxy * half;
+    const bw = Math.max(bx1 - bx0, 1);
+    const bh = Math.max(by1 - by0, 1);
+    const fitPad = 0.52; // marked words fill ~half the viewport
+    let k = Math.min((w * fitPad) / bw, (h * fitPad) / bh);
+    k = Math.max(0.4, Math.min(50, k));
+    const bcx = (bx0 + bx1) / 2, bcy = (by0 + by1) / 2;
+    const target = { k, x: w / 2 - k * bcx, y: h / 2 - k * bcy };
+    if (!camHasFit.current) {
+      transform.current = d3.zoomIdentity.translate(target.x, target.y).scale(target.k);
+      camHasFit.current = true;
+    } else {
+      const tr = transform.current;
+      camFrom.current = { k: tr.k, x: tr.x, y: tr.y };
+      camTo.current = target;
+      camStart.current = performance.now();
+      camActive.current = true;
+    }
+  }, [fitIndices, data, interactive]);
+
+  // Render loop (mounted once).
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -127,23 +195,29 @@ export function Space({
     if (!ctx) return;
     let raf = 0;
 
-    const draw = () => {
+    const frame = () => {
       const cur = currentCoords.current;
       if (!cur) {
-        raf = requestAnimationFrame(draw);
+        raf = requestAnimationFrame(frame);
         return;
       }
+      const D = draw.current;
 
-      // Advance tween.
       if (tweenActive.current && tweenFrom.current && tweenTo.current) {
         const t = Math.min(1, (performance.now() - tweenStart.current) / TWEEN_MS);
         const e = 1 - Math.pow(1 - t, 3);
-        const from = tweenFrom.current;
-        const to = tweenTo.current;
-        for (let i = 0; i < cur.length; i++) {
-          cur[i] = from[i] + (to[i] - from[i]) * e;
-        }
+        const from = tweenFrom.current, to = tweenTo.current;
+        for (let i = 0; i < cur.length; i++) cur[i] = from[i] + (to[i] - from[i]) * e;
         if (t >= 1) tweenActive.current = false;
+      }
+      if (camActive.current && camFrom.current && camTo.current) {
+        const t = Math.min(1, (performance.now() - camStart.current) / CAM_MS);
+        const e = 1 - Math.pow(1 - t, 3);
+        const f = camFrom.current, to = camTo.current;
+        transform.current = d3.zoomIdentity
+          .translate(f.x + (to.x - f.x) * e, f.y + (to.y - f.y) * e)
+          .scale(f.k + (to.k - f.k) * e);
+        if (t >= 1) camActive.current = false;
       }
 
       const { w, h } = size.current;
@@ -153,39 +227,33 @@ export function Space({
       ctx.fillStyle = "#070707";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Map UMAP [-1, 1] into a centered square that fits the viewport
-      // (preserve aspect; leave 4% padding so points near the bbox edge breathe).
       const pad = 0.96;
       const half = Math.min(w, h) * 0.5 * pad;
-      const cx = w / 2;
-      const cy = h / 2;
+      const cx = w / 2, cy = h / 2;
       const tr = transform.current;
-
-      // Combined transform: (device px) = dpr * (screen px), then zoom transform,
-      // then UMAP→screen map. We pre-multiply by dpr.
       ctx.setTransform(r, 0, 0, r, 0, 0);
       ctx.translate(tr.x, tr.y);
       ctx.scale(tr.k, tr.k);
-      // Now in screen-px coords.
 
-      // Background cloud — small soft discs at low alpha.
-      const pointR = 0.9; // screen-px before zoom (zoom scales it)
-      ctx.fillStyle = "rgba(128,136,160,0.35)";
+      const sx = (i: number) => cx + cur[i * 2] * half;
+      const sy = (i: number) => cy + cur[i * 2 + 1] * half;
+
+      // background cloud
+      const cloudA = D.dimBackground ? 0.12 : 0.35;
+      const pointR = 0.9;
+      ctx.fillStyle = `rgba(128,136,160,${cloudA})`;
       for (let i = 0; i < n; i++) {
-        const x = cx + cur[i * 2] * half;
-        const y = cy + cur[i * 2 + 1] * half;
         ctx.beginPath();
-        ctx.arc(x, y, pointR / Math.max(0.8, tr.k * 0.6), 0, Math.PI * 2);
+        ctx.arc(sx(i), sy(i), pointR / Math.max(0.8, tr.k * 0.6), 0, Math.PI * 2);
         ctx.fill();
       }
 
-      // Marked: halo + crisp core.
-      for (let i = 0; i < markedIndices.length; i++) {
-        const idx = markedIndices[i];
-        const col = markedColors[i] ?? [1, 1, 1];
-        const x = cx + cur[idx * 2] * half;
-        const y = cy + cur[idx * 2 + 1] * half;
-        const isHi = highlightedMarkedIdx === i;
+      // marked: halo + core
+      for (let i = 0; i < D.markedIndices.length; i++) {
+        const idx = D.markedIndices[i];
+        const col = D.markedColors[i] ?? [1, 1, 1];
+        const x = sx(idx), y = sy(idx);
+        const isHi = D.highlightedMarkedIdx === i;
         const haloR = (isHi ? 18 : 12) / tr.k;
         const coreR = (isHi ? 5.5 : 3.5) / tr.k;
         const grad = ctx.createRadialGradient(x, y, 0, x, y, haloR);
@@ -202,10 +270,29 @@ export function Space({
         ctx.fill();
       }
 
-      // Hovered.
-      if (hoveredIdx !== null && hoveredIdx >= 0 && hoveredIdx < n) {
-        const x = cx + cur[hoveredIdx * 2] * half;
-        const y = cy + cur[hoveredIdx * 2 + 1] * half;
+      // labels (story mode) — screen-constant size via /tr.k
+      if (D.labels) {
+        const fs = 13 / tr.k;
+        const off = 9 / tr.k;
+        ctx.font = `${fs}px ui-monospace, monospace`;
+        ctx.textBaseline = "middle";
+        for (let i = 0; i < D.markedIndices.length; i++) {
+          const text = D.labels[i];
+          if (!text) continue;
+          const idx = D.markedIndices[i];
+          const col = D.markedColors[i] ?? [1, 1, 1];
+          const x = sx(idx) + off, y = sy(idx);
+          ctx.lineWidth = 3 / tr.k;
+          ctx.strokeStyle = "rgba(0,0,0,0.85)";
+          ctx.strokeText(text, x, y);
+          ctx.fillStyle = rgbCss(col, 1);
+          ctx.fillText(text, x, y);
+        }
+      }
+
+      // hovered
+      if (D.hoveredIdx !== null && D.hoveredIdx >= 0 && D.hoveredIdx < n) {
+        const x = sx(D.hoveredIdx), y = sy(D.hoveredIdx);
         ctx.strokeStyle = "rgba(255,255,255,0.85)";
         ctx.lineWidth = 1.5 / tr.k;
         ctx.beginPath();
@@ -213,19 +300,17 @@ export function Space({
         ctx.stroke();
       }
 
-      raf = requestAnimationFrame(draw);
+      raf = requestAnimationFrame(frame);
     };
 
-    raf = requestAnimationFrame(draw);
+    raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [hoveredIdx, markedIndices, markedColors, highlightedMarkedIdx, n]);
+  }, [n]);
 
-  // Hover + click handlers on overlay div.
+  // hover/click picking
   const screenToWorld = (sx: number, sy: number): [number, number] | null => {
-    if (!size.current) return null;
     const { w, h } = size.current;
     const tr = transform.current;
-    // Undo zoom transform, then undo UMAP→screen map.
     const ux = (sx - tr.x) / tr.k;
     const uy = (sy - tr.y) / tr.k;
     const pad = 0.96;
@@ -237,11 +322,8 @@ export function Space({
     const overlay = overlayRef.current;
     if (!overlay || !tree.current) return null;
     const rect = overlay.getBoundingClientRect();
-    const sx = clientX - rect.left;
-    const sy = clientY - rect.top;
-    const wp = screenToWorld(sx, sy);
+    const wp = screenToWorld(clientX - rect.left, clientY - rect.top);
     if (!wp) return null;
-    // hover radius in world units = HOVER_RADIUS_PX / (half * tr.k)
     const { w, h } = size.current;
     const half = Math.min(w, h) * 0.5 * 0.96;
     const worldR = HOVER_RADIUS_PX / (half * transform.current.k);
@@ -252,12 +334,11 @@ export function Space({
   return (
     <div
       ref={overlayRef}
-      className="absolute inset-0 cursor-grab active:cursor-grabbing"
+      className={`absolute inset-0 ${interactive ? "cursor-grab active:cursor-grabbing" : ""}`}
       onMouseMove={(e) => onHover(pick(e.clientX, e.clientY))}
       onMouseLeave={() => onHover(null)}
       onClick={(e) => {
-        // d3-zoom blocks mousedown propagation, so onMouseDown/Up never fire here.
-        // d3-drag suppresses click after a real drag, so this only fires on clean clicks.
+        if (!onToggleMark) return;
         const idx = pick(e.clientX, e.clientY);
         if (idx !== null) onToggleMark(idx);
       }}

@@ -81,3 +81,50 @@ body {
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.16);
 }
+
+/* year slider — make the thumb read as obviously grabbable */
+.year-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  cursor: grab;
+  outline: none;
+}
+.year-slider:active {
+  cursor: grabbing;
+}
+.year-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--accent);
+  border: 3px solid #070707;
+  box-shadow: 0 0 0 1px rgba(244, 184, 96, 0.5), 0 0 14px 2px rgba(244, 184, 96, 0.55);
+  cursor: grab;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.year-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+.year-slider:active::-webkit-slider-thumb {
+  cursor: grabbing;
+  box-shadow: 0 0 0 1px rgba(244, 184, 96, 0.7), 0 0 18px 4px rgba(244, 184, 96, 0.7);
+}
+.year-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--accent);
+  border: 3px solid #070707;
+  box-shadow: 0 0 14px 2px rgba(244, 184, 96, 0.55);
+  cursor: grab;
+}
+.year-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+}

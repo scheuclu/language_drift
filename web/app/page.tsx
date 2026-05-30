@@ -1,271 +1,321 @@
 "use client";
 
-import {
-  motion,
-  useMotionValueEvent,
-  useScroll,
-} from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { Constellation } from "@/components/Constellation";
-import { loadWord } from "@/lib/data";
-import type { WordData } from "@/lib/types";
+import dynamic from "next/dynamic";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { loadSpace, type SpaceData } from "@/lib/space";
+import { STORIES, ROLE_COLOR } from "@/lib/stories";
+import type { RGB } from "@/components/Space";
 
-const HERO_WORD = "distancing";
+const Space = dynamic(() => import("@/components/Space").then((m) => m.Space), {
+  ssr: false,
+});
 
-type Chapter = {
-  yearIndex: number;
-  year: number;
-  kicker: string;
-  title: string;
-  body: string;
-};
+const PLAY_MS_PER_YEAR = 850;
 
-const CHAPTERS: Chapter[] = [
-  {
-    yearIndex: 0,
-    year: 2014,
-    kicker: "Before everything",
-    title: "You distanced yourself from an idea.",
-    body:
-      "In 2014 distancing was a stance, not a rule. You distanced yourself from a claim, a belief, a criticism — the word traveled with contradictory, irrational, guilt, embraced, absurd. It was something you did in your head.",
-  },
-  {
-    yearIndex: 3,
-    year: 2017,
-    kicker: "Quiet drift",
-    title: "A way of holding things at arm's length.",
-    body:
-      "Through the mid-2010s it stays abstract — perception, beliefs, oneself, deliberately. To distance was to take a position: from a person, an ideology, an uncomfortable truth. Nothing happens in this chapter — and that's the point.",
-  },
-  {
-    yearIndex: 6,
-    year: 2020,
-    kicker: "Spring 2020",
-    title: "Overwritten in a single season.",
-    body:
-      "By mid-2020 the whole neighborhood is replaced: pandemic, coronavirus, quarantine, masks, gatherings, lockdown. Overnight the word stops being a mental stance and becomes a measurement — how many feet apart to stand.",
-  },
-  {
-    yearIndex: 8,
-    year: 2022,
-    kicker: "The meaning hardens",
-    title: "Six feet. Masks. Gatherings.",
-    body:
-      "By 2022 every top neighbor is physical: masks, lockdown, quarantine, vaccinated, gatherings. The old sense isn't faded — it's gone. Distancing is now something bodies do in space, not something minds do with ideas.",
-  },
-  {
-    yearIndex: 11,
-    year: 2025,
-    kicker: "After",
-    title: "This one never goes back.",
-    body:
-      "Most words drift and partly return. Distancing doesn't. Five years on it's still pandemic, coronavirus, quarantine, vaccinated — the 2014 meaning, distancing yourself from an idea, erased completely.",
-  },
-];
+function hexToRgb(hex: string): RGB {
+  const n = parseInt(hex.slice(1), 16);
+  return [((n >> 16) & 0xff) / 255, ((n >> 8) & 0xff) / 255, (n & 0xff) / 255];
+}
 
 export default function LandingPage() {
-  const [data, setData] = useState<WordData | null>(null);
+  const [data, setData] = useState<SpaceData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [storyIdx, setStoryIdx] = useState(0);
   const [yearIndex, setYearIndex] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const [dragged, setDragged] = useState(false);
+  const playRef = useRef<number | null>(null);
 
   useEffect(() => {
-    loadWord(HERO_WORD).then((d) => {
-      if (d) setData(d);
+    loadSpace().then((d) => {
+      if (!d) setError("space data unavailable");
+      else setData(d);
     });
   }, []);
 
-  const { scrollYProgress } = useScroll({
-    target: containerRef,
-    offset: ["start start", "end end"],
-  });
+  const wordToIdx = useMemo(() => {
+    const m = new Map<string, number>();
+    if (data) data.index.words.forEach((w, i) => m.set(w, i));
+    return m;
+  }, [data]);
 
-  useMotionValueEvent(scrollYProgress, "change", (v) => {
-    const segs = CHAPTERS.length;
-    const seg = Math.min(segs - 1, Math.floor(v * segs));
-    const targetIdx = CHAPTERS[seg].yearIndex;
-    setYearIndex(targetIdx);
-  });
+  const story = STORIES[storyIdx];
+  const years = data?.index.years ?? [];
+  const currentYear = years[yearIndex];
+
+  const { markedIndices, markedColors, labels, fitIndices } = useMemo(() => {
+    const ids: number[] = [];
+    const cols: RGB[] = [];
+    const labs: string[] = [];
+    if (!data) return { markedIndices: ids, markedColors: cols, labels: labs, fitIndices: ids };
+    story.words.forEach((sw) => {
+      const idx = wordToIdx.get(sw.w);
+      if (idx === undefined) return;
+      ids.push(idx);
+      cols.push(hexToRgb(ROLE_COLOR[sw.role]));
+      labs.push(sw.w);
+    });
+    return { markedIndices: ids, markedColors: cols, labels: labs, fitIndices: ids };
+  }, [data, story, wordToIdx]);
+
+  // active chapter = latest whose year <= currentYear
+  const chapter = useMemo(() => {
+    let c = story.chapters[0];
+    for (const ch of story.chapters) if (currentYear !== undefined && ch.year <= currentYear) c = ch;
+    return c;
+  }, [story, currentYear]);
+
+  // reset to the start year whenever the story changes (no autoplay — drag it)
+  useEffect(() => {
+    setYearIndex(0);
+    setPlaying(false);
+  }, [storyIdx]);
+
+  // play loop
+  useEffect(() => {
+    if (!playing || !data) return;
+    const tick = () => {
+      setYearIndex((yi) => {
+        if (yi + 1 >= data.index.years.length) {
+          setPlaying(false);
+          return yi;
+        }
+        return yi + 1;
+      });
+      playRef.current = window.setTimeout(tick, PLAY_MS_PER_YEAR);
+    };
+    playRef.current = window.setTimeout(tick, PLAY_MS_PER_YEAR);
+    return () => {
+      if (playRef.current !== null) window.clearTimeout(playRef.current);
+    };
+  }, [playing, data]);
+
+  const atEnd = data ? yearIndex >= data.index.years.length - 1 : false;
 
   return (
     <main className="flex-1">
-      {/* hero intro */}
-      <section className="min-h-screen flex flex-col items-center justify-center px-6 pt-24 pb-16 text-center">
+      {/* hero */}
+      <section className="min-h-[62vh] flex flex-col items-center justify-center px-6 pt-28 pb-12 text-center">
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.9 }}
+          transition={{ duration: 0.8 }}
           className="max-w-3xl"
         >
           <div className="text-accent text-xs font-mono uppercase tracking-[0.25em] mb-6">
             Word2Vec · 2014 → 2025
           </div>
-          <h1 className="font-display text-[clamp(48px,8vw,120px)] leading-[0.95] tracking-tight">
+          <h1 className="font-display text-[clamp(44px,7.5vw,104px)] leading-[0.95] tracking-tight">
             English changes
             <br />
-            <em>while you're looking away.</em>
+            <em>while you&apos;re looking away.</em>
           </h1>
-          <p className="text-foreground/70 text-lg lg:text-xl mt-8 max-w-2xl mx-auto leading-relaxed">
-            Twelve Word2Vec models, one per year, trained on a billion tokens of
-            Common Crawl each and locked to a shared frame. Below:{" "}
-            <em>distancing</em> — and the company it kept, year by year.
+          <p className="text-foreground/70 text-base lg:text-xl mt-8 max-w-2xl mx-auto leading-relaxed">
+            Twelve years of word embeddings, projected into one map. Drag through the
+            years and watch a word tear loose from its old neighbors and snap onto
+            new ones — the exact moment a meaning flips.
           </p>
-          <div className="mt-10 text-muted text-sm font-mono">
-            scroll to begin ↓
-          </div>
+          <div className="mt-9 text-muted text-sm font-mono">pick a story ↓</div>
         </motion.div>
       </section>
 
-      {/* scrollytelling */}
-      <div
-        ref={containerRef}
-        className="relative"
-        style={{ height: `${(CHAPTERS.length + 1) * 100}vh` }}
-      >
-        <div className="sticky top-0 h-screen w-full">
-          {data && <Constellation data={data} yearIndex={yearIndex} showCount={18} />}
-          {!data && (
-            <div className="h-full grid place-items-center text-muted font-mono text-sm">
-              loading mask…
-            </div>
-          )}
-        </div>
+      {/* the player */}
+      <section className="relative h-screen w-full border-y border-white/[0.06] overflow-hidden bg-[#070707]">
+        {data ? (
+          <Space
+            data={data}
+            yearIndex={yearIndex}
+            hoveredIdx={hoveredIdx}
+            onHover={setHoveredIdx}
+            markedIndices={markedIndices}
+            markedColors={markedColors}
+            highlightedMarkedIdx={null}
+            labels={labels}
+            dimBackground
+            interactive={false}
+            fitIndices={fitIndices}
+          />
+        ) : (
+          <div className="absolute inset-0 grid place-items-center text-muted font-mono text-sm">
+            {error ?? "loading the map…"}
+          </div>
+        )}
 
-        <div className="relative -mt-[100vh] pointer-events-none">
-          {/* spacer so first chapter aligns with the first sticky frame */}
-          <div className="h-screen" />
-          {CHAPTERS.map((c, i) => (
-            <ChapterCard key={i} chapter={c} side={i % 2 === 0 ? "right" : "left"} />
+        {/* story tabs */}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex flex-wrap justify-center gap-1.5 px-3">
+          {STORIES.map((s, i) => (
+            <button
+              key={s.id}
+              onClick={() => setStoryIdx(i)}
+              className={`px-3 py-1.5 rounded-full text-xs font-mono transition-colors border tabular-nums ${
+                i === storyIdx
+                  ? "bg-accent text-black border-accent"
+                  : "border-white/10 text-muted hover:text-foreground hover:border-white/25 bg-black/30 backdrop-blur-md"
+              }`}
+            >
+              {s.id} · {s.snapYear}
+            </button>
           ))}
         </div>
-      </div>
 
-      {/* call to action */}
-      <section className="py-32 px-6 text-center">
+        {/* active story header */}
+        <div className="absolute top-20 left-6 lg:left-10 z-10 max-w-xs pointer-events-none">
+          <div className="text-[10px] uppercase tracking-[0.2em] text-accent font-mono mb-1">
+            story · the snap of {story.snapYear}
+          </div>
+          <h2 className="font-display text-2xl lg:text-3xl leading-tight mb-2">
+            {story.title}
+          </h2>
+          <p className="text-foreground/55 text-xs lg:text-sm leading-relaxed">
+            {story.blurb}
+          </p>
+        </div>
+
+        {/* legend */}
+        <div className="absolute bottom-28 left-6 lg:left-10 z-10 space-y-1">
+          {story.words.map((sw) => (
+            <div key={sw.w} className="flex items-center gap-2 text-[11px] font-mono">
+              <span
+                className="inline-block w-2.5 h-2.5 rounded-full shadow-[0_0_8px_currentColor]"
+                style={{ background: ROLE_COLOR[sw.role], color: ROLE_COLOR[sw.role] }}
+              />
+              <span className="text-foreground">{sw.w}</span>
+              {sw.role === "toward" && <span className="text-[#5dffd9]/70">→ joins</span>}
+              {sw.role === "away" && <span className="text-[#ff5da2]/70">← leaves</span>}
+              {sw.role === "hero" && <span className="text-accent/70">the word</span>}
+            </div>
+          ))}
+        </div>
+
+        {/* chapter caption */}
+        <div className="absolute top-1/2 right-6 lg:right-10 -translate-y-1/2 z-10 w-[min(80vw,340px)]">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={`${story.id}-${chapter.year}`}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.4 }}
+              className="backdrop-blur-xl bg-black/55 border border-white/10 rounded-2xl p-5 shadow-2xl"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-accent text-[11px] font-mono uppercase tracking-wider">
+                  {chapter.title}
+                </span>
+                <span className="font-mono text-xs text-muted tabular-nums">
+                  {chapter.year}
+                </span>
+              </div>
+              <p className="text-foreground/85 text-sm leading-relaxed">{chapter.body}</p>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* transport — drag-first; the slider invites the drag */}
+        {data && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 w-[min(86vw,560px)] backdrop-blur-md bg-black/45 border border-white/10 rounded-xl px-4 py-3 flex items-center gap-3">
+            {/* drag hint */}
+            <AnimatePresence>
+              {!dragged && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 6 }}
+                  className="absolute -top-9 left-1/2 -translate-x-1/2 flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.15em] text-accent pointer-events-none whitespace-nowrap"
+                >
+                  <motion.span animate={{ x: [0, -4, 0] }} transition={{ duration: 0.9, repeat: Infinity }}>
+                    ‹
+                  </motion.span>
+                  drag the years
+                  <motion.span animate={{ x: [0, 4, 0] }} transition={{ duration: 0.9, repeat: Infinity }}>
+                    ›
+                  </motion.span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <button
+              onClick={() => {
+                if (atEnd) setYearIndex(0);
+                setPlaying((p) => (atEnd ? true : !p));
+              }}
+              className="font-mono text-xs uppercase tracking-wider text-foreground/80 hover:text-accent transition-colors w-12 text-left shrink-0"
+            >
+              {atEnd ? "replay" : playing ? "pause" : "play"}
+            </button>
+
+            <motion.div
+              key={storyIdx}
+              className="flex-1"
+              animate={dragged ? { x: 0 } : { x: [0, -6, 6, -5, 5, 0] }}
+              transition={
+                dragged
+                  ? { duration: 0.2 }
+                  : { duration: 1.1, delay: 0.6, repeat: 1, repeatDelay: 0.9, ease: "easeInOut" }
+              }
+            >
+              <input
+                type="range"
+                min={0}
+                max={years.length - 1}
+                step={1}
+                value={yearIndex}
+                onChange={(e) => {
+                  setPlaying(false);
+                  setDragged(true);
+                  setYearIndex(parseInt(e.target.value, 10));
+                }}
+                className="w-full year-slider"
+              />
+            </motion.div>
+
+            <span className="font-mono text-base tabular-nums text-foreground w-14 text-right shrink-0">
+              {currentYear}
+            </span>
+          </div>
+        )}
+      </section>
+
+      {/* cta */}
+      <section className="py-28 px-6 text-center">
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.3 }}
           transition={{ duration: 0.6 }}
         >
-          <h2 className="font-display text-[clamp(36px,5vw,72px)] leading-[1.05]">
-            What word do <em>you</em> want to look at?
+          <h2 className="font-display text-[clamp(32px,5vw,64px)] leading-[1.05]">
+            These are four words. <em>The map holds&nbsp;the&nbsp;rest.</em>
           </h2>
-          <Link
-            href="/explore"
-            className="mt-10 inline-block px-8 py-4 rounded-full bg-accent text-black font-mono text-sm uppercase tracking-widest hover:bg-accent/85 transition-colors"
-          >
-            Open the explorer →
-          </Link>
+          <div className="mt-9 flex items-center justify-center">
+            <Link
+              href="/space"
+              className="inline-block px-8 py-4 rounded-full bg-accent text-black font-mono text-sm uppercase tracking-widest hover:bg-accent/85 transition-colors"
+            >
+              Roam the full space →
+            </Link>
+          </div>
         </motion.div>
       </section>
 
-      {/* more stories */}
-      <MoreStoriesGrid />
-
-      {/* method note */}
+      {/* method */}
       <section className="px-6 lg:px-10 py-20 max-w-3xl mx-auto text-foreground/70 text-sm leading-relaxed border-t border-white/[0.06]">
         <div className="text-[10px] uppercase tracking-[0.2em] text-muted font-mono mb-4">
           method
         </div>
         <p>
-          For each year 2014–2025, we train a fresh skip-gram-with-negative-sampling
-          Word2Vec (300d, window 10, 15 negatives) on a 1B-token slice of Common
-          Crawl. All twelve years are trained against one shared <em>compass</em> —
-          a context space learned across the whole period and then frozen — so
-          every year lands in the same coordinate system directly, with no
-          post-hoc alignment. A word's drift in a given year is the cosine
-          distance from its 2018 vector, summed across the other eleven years.
-          Stable anchors like <em>music</em> or <em>father</em> stay under 1.0 —
-          the noise floor of the method. The biggest movers — <em>nft</em>,{" "}
-          <em>defi</em>, <em>omicron</em> — clear 8.
+          Twelve per-year Word2Vec models (300d, trained on ~1B tokens of Common
+          Crawl each) share one frozen <em>compass</em>, so all years live in the
+          same coordinate system. Every word-year is then projected to 2D with a
+          single joint UMAP — which is why a word can sit still for years and then
+          jump to a new neighborhood the moment its meaning shifts. The map holds{" "}
+          {data ? data.index.n_words.toLocaleString() : "52,894"} words; each story
+          above just lights a few of them up.
         </p>
       </section>
     </main>
-  );
-}
-
-function ChapterCard({
-  chapter,
-  side,
-}: {
-  chapter: Chapter;
-  side: "left" | "right";
-}) {
-  return (
-    <section
-      className={`h-screen flex items-center px-6 lg:px-16 ${
-        side === "right" ? "justify-end" : "justify-start"
-      }`}
-    >
-      <motion.div
-        initial={{ opacity: 0, y: 40 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: false, amount: 0.45 }}
-        transition={{ duration: 0.55 }}
-        className="max-w-md backdrop-blur-xl bg-black/55 p-6 lg:p-7 rounded-2xl border border-white/10 pointer-events-auto shadow-2xl"
-      >
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-accent text-xs font-mono uppercase tracking-wider">
-            {chapter.kicker}
-          </span>
-          <span className="font-mono text-xs text-muted tabular-nums">
-            {chapter.year}
-          </span>
-        </div>
-        <h2 className="font-display text-2xl lg:text-3xl leading-tight mb-3">
-          {chapter.title}
-        </h2>
-        <p className="text-foreground/80 text-sm lg:text-base leading-relaxed">
-          {chapter.body}
-        </p>
-      </motion.div>
-    </section>
-  );
-}
-
-const MORE_STORIES = [
-  {
-    word: "crypto",
-    blurb: "Cryptography → currency, in five years.",
-  },
-  { word: "lockdown", blurb: "An emergency protocol becomes everyday." },
-  { word: "gummies", blurb: "Candy and vitamins → CBD and keto." },
-  { word: "zoom", blurb: "A verb. Then a meeting." },
-  { word: "viral", blurb: "From outbreaks to Instagram." },
-  { word: "token", blurb: "A software token → a crypto token." },
-];
-
-function MoreStoriesGrid() {
-  return (
-    <section className="px-6 lg:px-10 py-24 border-t border-white/[0.06]">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-[10px] uppercase tracking-[0.2em] text-muted font-mono mb-4">
-          more drifts
-        </div>
-        <h2 className="font-display text-[clamp(32px,4vw,56px)] leading-tight mb-12">
-          A few more words that didn't stay put.
-        </h2>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-          {MORE_STORIES.map((s) => (
-            <Link
-              key={s.word}
-              href={`/explore?w=${s.word}`}
-              className="block p-6 rounded-2xl border border-white/[0.06] hover:border-white/15 bg-white/[0.02] hover:bg-white/[0.04] transition-colors group"
-            >
-              <div className="font-display text-3xl lg:text-4xl mb-2 group-hover:text-accent transition-colors">
-                {s.word}
-              </div>
-              <div className="text-foreground/65 text-sm leading-snug">
-                {s.blurb}
-              </div>
-              <div className="mt-4 text-muted text-[11px] font-mono group-hover:text-foreground transition-colors">
-                open →
-              </div>
-            </Link>
-          ))}
-        </div>
-      </div>
-    </section>
   );
 }
