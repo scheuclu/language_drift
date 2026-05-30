@@ -1,9 +1,11 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { loadManifest } from "@/lib/data";
 import { loadSpace, type SpaceData } from "@/lib/space";
+import { STORIES } from "@/lib/stories";
 import type { Manifest } from "@/lib/types";
 import type { RGB } from "@/components/Space";
 
@@ -96,6 +98,18 @@ export default function SpacePage() {
     setMarked((prev) => prev.filter((x) => x !== w));
   };
 
+  // load a curated story's word set + jump to the year it matters
+  const pickStory = (storyId: string) => {
+    const s = STORIES.find((x) => x.id === storyId);
+    if (!s || !data) return;
+    setMarked(s.words.map((w) => w.w));
+    const yi = data.index.years.indexOf(s.snapYear);
+    if (yi >= 0) {
+      setPlaying(false);
+      setYearIndex(yi);
+    }
+  };
+
   useEffect(() => {
     if (!playing || !data) return;
     const tick = () => {
@@ -157,6 +171,34 @@ export default function SpacePage() {
         </p>
       </header>
 
+      {/* floating story bubbles — click to load that curated word set */}
+      {data && (
+        <div className="absolute top-16 right-6 lg:right-10 z-20 flex flex-col items-end gap-2">
+          <div className="text-[10px] uppercase tracking-[0.2em] text-muted font-mono">
+            load a story
+          </div>
+          <div className="flex flex-wrap justify-end gap-2 max-w-[52vw]">
+            {STORIES.map((s, i) => (
+              <motion.button
+                key={s.id}
+                onClick={() => pickStory(s.id)}
+                title={s.title}
+                animate={{ y: [0, -5, 0] }}
+                transition={{
+                  duration: 3 + (i % 4) * 0.6,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: i * 0.25,
+                }}
+                className="px-3 py-1.5 rounded-full text-xs font-mono backdrop-blur-md bg-black/40 border border-white/12 text-foreground/75 hover:text-foreground hover:border-white/30 hover:bg-black/60 transition-colors"
+              >
+                {s.id}
+              </motion.button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="absolute left-6 lg:left-10 top-1/2 -translate-y-1/2 pointer-events-auto max-w-[180px]">
         <div className="text-[10px] uppercase tracking-widest text-muted font-mono mb-2">
           marked
@@ -166,7 +208,7 @@ export default function SpacePage() {
             click any point to pin
           </div>
         ) : (
-          <div className="space-y-1">
+          <div className="space-y-1 max-h-[58vh] overflow-y-auto scrollbar-thin pr-1">
             {markedVisible.map((w, i) => (
               <div
                 key={w}
