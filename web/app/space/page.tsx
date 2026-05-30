@@ -134,6 +134,7 @@ export default function SpacePage() {
             markedColors={markedColors}
             highlightedMarkedIdx={hoveredChip}
             onToggleMark={onToggleMark}
+            freqByYear={data.freqByYear}
           />
         ) : (
           <div className="absolute inset-0 grid place-items-center text-muted text-sm font-mono">

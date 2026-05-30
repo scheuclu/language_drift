@@ -137,6 +137,7 @@ export default function LandingPage() {
             dimBackground
             interactive={false}
             fitIndices={fitIndices}
+            freqByYear={data.freqByYear}
           />
         ) : (
           <div className="absolute inset-0 grid place-items-center text-muted font-mono text-sm">

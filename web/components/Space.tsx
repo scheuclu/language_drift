@@ -15,6 +15,9 @@ type Props = {
   markedColors: RGB[];
   highlightedMarkedIdx: number | null;
   onToggleMark?: (idx: number) => void;
+  // brightness: per-year per-million freq (year-major); points get brighter the
+  // more common the word was that year. Absent => uniform cloud (original look).
+  freqByYear?: Float32Array[];
   // --- story mode (all optional; absent => the original interactive /space) ---
   labels?: (string | null)[]; // aligned to markedIndices
   dimBackground?: boolean; // fade the cloud so marked words pop
@@ -25,6 +28,18 @@ type Props = {
 const TWEEN_MS = 700;
 const CAM_MS = 850;
 const HOVER_RADIUS_PX = 8;
+
+// Non-linear frequency -> brightness. pm spans ~5 orders of magnitude, so map on
+// a log scale: most words sit dim near the bottom, the frequent tail lights up.
+const B_LO = Math.log10(0.5);
+const B_HI = Math.log10(200);
+const B_RANGE = B_HI - B_LO;
+const N_BUCKETS = 24;
+function brightnessOf(pm: number): number {
+  if (pm <= 0) return 0;
+  const b = (Math.log10(pm + 0.1) - B_LO) / B_RANGE;
+  return b < 0 ? 0 : b > 1 ? 1 : b;
+}
 
 function rgbCss([r, g, b]: RGB, a: number) {
   return `rgba(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)},${a})`;
@@ -39,6 +54,7 @@ export function Space({
   markedColors,
   highlightedMarkedIdx,
   onToggleMark,
+  freqByYear,
   labels,
   dimBackground = false,
   interactive = true,
@@ -62,6 +78,27 @@ export function Space({
   const camStart = useRef<number>(0);
   const camActive = useRef<boolean>(false);
   const camHasFit = useRef<boolean>(false);
+  // brightness: per-year brightness arrays + current year's points bucketed by it
+  const brightByYear = useRef<Float32Array[] | null>(null);
+  const buckets = useRef<number[][] | null>(null);
+
+  const n = data.index.n_words;
+
+  const regroup = (yi: number) => {
+    const bb = brightByYear.current;
+    if (!bb || !bb[yi]) {
+      buckets.current = null;
+      return;
+    }
+    const b = bb[yi];
+    const lists: number[][] = Array.from({ length: N_BUCKETS }, () => []);
+    for (let i = 0; i < n; i++) {
+      let bk = (b[i] * N_BUCKETS) | 0;
+      if (bk >= N_BUCKETS) bk = N_BUCKETS - 1;
+      lists[bk].push(i);
+    }
+    buckets.current = lists;
+  };
 
   // keep latest draw inputs in refs so the rAF loop (mounted once) sees them
   const draw = useRef({
@@ -80,8 +117,6 @@ export function Space({
     labels,
     dimBackground,
   };
-
-  const n = data.index.n_words;
 
   // Initial / resize setup + (interactive only) d3-zoom binding.
   useEffect(() => {
@@ -137,6 +172,7 @@ export function Space({
       tweenActive.current = true;
     }
     prevYi.current = yearIndex;
+    regroup(yearIndex);
     const t = d3
       .quadtree<number>()
       .x((i) => target[i * 2])
@@ -145,7 +181,25 @@ export function Space({
     for (let i = 0; i < n; i++) ids.push(i);
     t.addAll(ids);
     tree.current = t;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [yearIndex, data, n]);
+
+  // Precompute brightness per year from frequencies (log map), then bucket the
+  // current year's points by it.
+  useEffect(() => {
+    if (!freqByYear) {
+      brightByYear.current = null;
+      buckets.current = null;
+      return;
+    }
+    brightByYear.current = freqByYear.map((col) => {
+      const b = new Float32Array(col.length);
+      for (let i = 0; i < col.length; i++) b[i] = brightnessOf(col[i]);
+      return b;
+    });
+    regroup(prevYi.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [freqByYear]);
 
   // Story-mode camera: frame fitIndices across ALL years (stable frame).
   useEffect(() => {
@@ -238,13 +292,63 @@ export function Space({
       const sx = (i: number) => cx + cur[i * 2] * half;
       const sy = (i: number) => cy + cur[i * 2 + 1] * half;
 
-      // background cloud
-      const cloudA = D.dimBackground ? 0.12 : 0.35;
-      const pointR = 0.9;
-      ctx.fillStyle = `rgba(128,136,160,${cloudA})`;
-      for (let i = 0; i < n; i++) {
+      // background cloud — brightness by per-year frequency when available.
+      const rscale = 1 / Math.max(0.8, tr.k * 0.6);
+      const bk = buckets.current;
+      if (bk) {
+        const dim = D.dimBackground;
+        const baseA = dim ? 0.012 : 0.022;
+        const gainA = dim ? 0.6 : 1.0;
+        const GAMMA = 2.4; // steeper => dim words recede, frequent ones dominate
+        // glow pass: soft warm halos beneath the most frequent words
+        for (let b = 0; b < N_BUCKETS; b++) {
+          const bm = (b + 0.5) / N_BUCKETS;
+          if (bm < 0.72) continue;
+          const list = bk[b];
+          if (list.length === 0) continue;
+          const ga = (dim ? 0.03 : 0.06) * bm;
+          ctx.fillStyle = `rgba(255,222,168,${ga.toFixed(3)})`;
+          const gr = (2.0 + 7 * (bm - 0.72)) * rscale;
+          ctx.beginPath();
+          for (let j = 0; j < list.length; j++) {
+            const i = list[j];
+            const x = sx(i), y = sy(i);
+            ctx.moveTo(x + gr, y);
+            ctx.arc(x, y, gr, 0, Math.PI * 2);
+          }
+          ctx.fill();
+        }
+        // core pass
+        for (let b = 0; b < N_BUCKETS; b++) {
+          const list = bk[b];
+          if (list.length === 0) continue;
+          const bm = (b + 0.5) / N_BUCKETS; // bucket midpoint brightness
+          let a = baseA + Math.pow(bm, GAMMA) * gainA;
+          if (a > 1) a = 1;
+          const cr = Math.round(80 + bm * (255 - 80));
+          const cg = Math.round(98 + bm * (236 - 98));
+          const cb = Math.round(148 + bm * (190 - 148));
+          ctx.fillStyle = `rgba(${cr},${cg},${cb},${a.toFixed(3)})`;
+          const rr = (0.62 + 1.0 * bm) * rscale;
+          ctx.beginPath();
+          for (let j = 0; j < list.length; j++) {
+            const i = list[j];
+            const x = sx(i), y = sy(i);
+            ctx.moveTo(x + rr, y);
+            ctx.arc(x, y, rr, 0, Math.PI * 2);
+          }
+          ctx.fill();
+        }
+      } else {
+        // fallback: uniform cloud (no frequency data)
+        const cloudA = D.dimBackground ? 0.12 : 0.35;
+        ctx.fillStyle = `rgba(128,136,160,${cloudA})`;
         ctx.beginPath();
-        ctx.arc(sx(i), sy(i), pointR / Math.max(0.8, tr.k * 0.6), 0, Math.PI * 2);
+        for (let i = 0; i < n; i++) {
+          const x = sx(i), y = sy(i);
+          ctx.moveTo(x + 0.9 * rscale, y);
+          ctx.arc(x, y, 0.9 * rscale, 0, Math.PI * 2);
+        }
         ctx.fill();
       }
 
