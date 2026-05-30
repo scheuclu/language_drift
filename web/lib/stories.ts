@@ -7,14 +7,21 @@ export type WordRole = "hero" | "toward" | "away" | "context";
 export type StoryWord = { w: string; role: WordRole };
 export type StoryChapter = { year: number; title: string; body: string };
 
+// "migration": a hero word moves between clusters (watch position).
+// "glow": a whole cluster brightens over time (watch intensity). In glow stories
+// every word is tinted with `accent`; role "hero" words also get a label.
+export type StoryMode = "migration" | "glow";
+
 export type Story = {
   id: string;
   kicker: string;
   title: string;
   blurb: string;
   snapYear: number;
-  words: StoryWord[]; // first entry is the hero
+  words: StoryWord[]; // first entry is the hero (migration) / labeled exemplars (glow)
   chapters: StoryChapter[];
+  mode?: StoryMode; // default "migration"
+  accent?: string; // glow only: cluster color
 };
 
 export const STORIES: Story[] = [
@@ -142,6 +149,130 @@ export const STORIES: Story[] = [
         year: 2025,
         title: "Still infected",
         body: "Years on, the word hasn't recovered its old life. The disease kept the name.",
+      },
+    ],
+  },
+
+  // ---- glow stories: a whole region brightens (watch intensity, not motion) ----
+  {
+    id: "gambling",
+    mode: "glow",
+    accent: "#ff5da2",
+    kicker: "2021 →",
+    title: "The casino floods in.",
+    blurb:
+      "One tight knot of the map — casino, slots, betting, jackpot — that the SEO spam machine set on fire. Drag forward and watch it ignite.",
+    snapYear: 2021,
+    words: [
+      { w: "casino", role: "hero" },
+      { w: "slots", role: "hero" },
+      { w: "betting", role: "hero" },
+      { w: "jackpot", role: "hero" },
+      { w: "bonus", role: "hero" },
+      { w: "casinos", role: "context" }, { w: "bet", role: "context" },
+      { w: "bets", role: "context" }, { w: "slot", role: "context" },
+      { w: "jackpots", role: "context" }, { w: "bonuses", role: "context" },
+      { w: "spins", role: "context" }, { w: "wager", role: "context" },
+      { w: "wagering", role: "context" }, { w: "gambling", role: "context" },
+      { w: "poker", role: "context" }, { w: "roulette", role: "context" },
+      { w: "payout", role: "context" }, { w: "payouts", role: "context" },
+      { w: "bettors", role: "context" }, { w: "blackjack", role: "context" },
+      { w: "baccarat", role: "context" },
+    ],
+    chapters: [
+      {
+        year: 2014,
+        title: "A quiet corner",
+        body: "casino, slots, betting, jackpot — real words, modestly used, sitting in one dense little pocket of the map.",
+      },
+      {
+        year: 2021,
+        title: "The machine finds it",
+        body: "Affiliate spam and auto-spun “best online casino” pages start flooding Common Crawl. The corner begins to glow.",
+      },
+      {
+        year: 2025,
+        title: "On fire",
+        body: "These words are roughly 12× more common than in 2014 — a whole patch of the web's vocabulary is now machine-spun gambling copy.",
+      },
+    ],
+  },
+  {
+    id: "ai-slop",
+    mode: "glow",
+    accent: "#ffd45d",
+    kicker: "2023 →",
+    title: "The chatbot register lights up.",
+    blurb:
+      "delve, seamless, intricate, robust — ordinary words language models reach for. Flat for eight years, then the whole neighborhood ignites at once.",
+    snapYear: 2023,
+    words: [
+      { w: "delve", role: "hero" },
+      { w: "seamless", role: "hero" },
+      { w: "intricate", role: "hero" },
+      { w: "robust", role: "hero" },
+      { w: "leverage", role: "hero" },
+      { w: "holistic", role: "context" }, { w: "tapestry", role: "context" },
+      { w: "underscores", role: "context" }, { w: "elevate", role: "context" },
+      { w: "realm", role: "context" }, { w: "nuanced", role: "context" },
+      { w: "meticulous", role: "context" }, { w: "showcasing", role: "context" },
+      { w: "garner", role: "context" }, { w: "captivating", role: "context" },
+      { w: "unwavering", role: "context" }, { w: "testament", role: "context" },
+      { w: "multifaceted", role: "context" }, { w: "navigating", role: "context" },
+      { w: "fostering", role: "context" }, { w: "crucial", role: "context" },
+      { w: "pivotal", role: "context" },
+    ],
+    chapters: [
+      {
+        year: 2014,
+        title: "Ordinary English",
+        body: "These are normal words, evenly used. Nothing distinguishes this patch of the map from any other.",
+      },
+      {
+        year: 2022,
+        title: "Still nothing",
+        body: "Eight years in, the neighborhood is exactly as bright as it was. No event has touched it.",
+      },
+      {
+        year: 2025,
+        title: "All at once",
+        body: "After ChatGPT the whole cluster lights up together — the words the models over-reach for, now ~5× their pre-2022 rate.",
+      },
+    ],
+  },
+  {
+    id: "coins",
+    mode: "glow",
+    accent: "#5dd5e8",
+    kicker: "2021 →",
+    title: "Money moves on-chain.",
+    blurb:
+      "bitcoin, crypto, wallet, token, defi — a niche technical pocket that two manias turned into a permanent bright patch.",
+    snapYear: 2021,
+    words: [
+      { w: "bitcoin", role: "hero" },
+      { w: "crypto", role: "hero" },
+      { w: "wallet", role: "hero" },
+      { w: "token", role: "hero" },
+      { w: "defi", role: "hero" },
+      { w: "tokens", role: "context" }, { w: "wallets", role: "context" },
+      { w: "staking", role: "context" },
+    ],
+    chapters: [
+      {
+        year: 2014,
+        title: "Niche and technical",
+        body: "bitcoin, wallet, token — a small, faint pocket, the vocabulary of early adopters.",
+      },
+      {
+        year: 2021,
+        title: "Two manias",
+        body: "The 2017 and 2021 booms pour writing into this corner — exchanges, coins, “to the moon.”",
+      },
+      {
+        year: 2025,
+        title: "A permanent patch",
+        body: "It never went dark again — roughly 9× its 2014 brightness, a fixed feature of the map now.",
       },
     ],
   },

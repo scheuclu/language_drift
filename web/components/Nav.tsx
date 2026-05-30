@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+// NOTE: /gallery and /ternary are hidden from the nav and are candidates for
+// deletion — gallery still routes into the removed /explore view, and neither
+// earns its place anymore. /explore is also nav-hidden (deep-linked only). If
+// nobody misses them, delete the routes + components outright. See CLAUDE.md.
 const LINKS = [
   { href: "/", label: "story" },
-  { href: "/ternary", label: "ternary" },
-  { href: "/arith", label: "arith" },
   { href: "/space", label: "space" },
-  { href: "/gallery", label: "gallery" },
+  { href: "/arith", label: "arith" },
   { href: "/llm", label: "llm" },
 ];
 

@@ -49,14 +49,21 @@ export default function LandingPage() {
   const { markedIndices, markedColors, labels, fitIndices } = useMemo(() => {
     const ids: number[] = [];
     const cols: RGB[] = [];
-    const labs: string[] = [];
+    const labs: (string | null)[] = [];
     if (!data) return { markedIndices: ids, markedColors: cols, labels: labs, fitIndices: ids };
+    const glow = story.mode === "glow";
+    const accent = hexToRgb(story.accent ?? "#ffffff");
     story.words.forEach((sw) => {
       const idx = wordToIdx.get(sw.w);
       if (idx === undefined) return;
       ids.push(idx);
-      cols.push(hexToRgb(ROLE_COLOR[sw.role]));
-      labs.push(sw.w);
+      if (glow) {
+        cols.push(accent); // one cluster colour; label only the exemplars
+        labs.push(sw.role === "hero" ? sw.w : null);
+      } else {
+        cols.push(hexToRgb(ROLE_COLOR[sw.role]));
+        labs.push(sw.w);
+      }
     });
     return { markedIndices: ids, markedColors: cols, labels: labs, fitIndices: ids };
   }, [data, story, wordToIdx]);
@@ -137,6 +144,8 @@ export default function LandingPage() {
             dimBackground
             interactive={false}
             fitIndices={fitIndices}
+            fitMinSpan={story.mode === "glow" ? 0.62 : undefined}
+            markedGlow={story.mode === "glow"}
             freqByYear={data.freqByYear}
           />
         ) : (
@@ -165,7 +174,9 @@ export default function LandingPage() {
         {/* active story header */}
         <div className="absolute top-20 left-6 lg:left-10 z-10 max-w-xs pointer-events-none">
           <div className="text-[10px] uppercase tracking-[0.2em] text-accent font-mono mb-1">
-            story · the snap of {story.snapYear}
+            {story.mode === "glow"
+              ? `story · lights up from ${story.snapYear}`
+              : `story · the snap of ${story.snapYear}`}
           </div>
           <h2 className="font-display text-2xl lg:text-3xl leading-tight mb-2">
             {story.title}
@@ -177,18 +188,34 @@ export default function LandingPage() {
 
         {/* legend */}
         <div className="absolute bottom-28 left-6 lg:left-10 z-10 space-y-1">
-          {story.words.map((sw) => (
-            <div key={sw.w} className="flex items-center gap-2 text-[11px] font-mono">
-              <span
-                className="inline-block w-2.5 h-2.5 rounded-full shadow-[0_0_8px_currentColor]"
-                style={{ background: ROLE_COLOR[sw.role], color: ROLE_COLOR[sw.role] }}
-              />
-              <span className="text-foreground">{sw.w}</span>
-              {sw.role === "toward" && <span className="text-[#5dffd9]/70">→ joins</span>}
-              {sw.role === "away" && <span className="text-[#ff5da2]/70">← leaves</span>}
-              {sw.role === "hero" && <span className="text-accent/70">the word</span>}
-            </div>
-          ))}
+          {story.mode === "glow" ? (
+            <>
+              <div className="flex items-center gap-2 text-[11px] font-mono">
+                <span
+                  className="inline-block w-2.5 h-2.5 rounded-full shadow-[0_0_8px_currentColor]"
+                  style={{ background: story.accent, color: story.accent }}
+                />
+                <span className="text-foreground">{story.words.length} words</span>
+                <span className="text-muted">· brighten = more common</span>
+              </div>
+              <div className="text-[11px] font-mono text-foreground/55 max-w-[180px] leading-snug pl-4">
+                {story.words.slice(0, 6).map((sw) => sw.w).join(", ")}…
+              </div>
+            </>
+          ) : (
+            story.words.map((sw) => (
+              <div key={sw.w} className="flex items-center gap-2 text-[11px] font-mono">
+                <span
+                  className="inline-block w-2.5 h-2.5 rounded-full shadow-[0_0_8px_currentColor]"
+                  style={{ background: ROLE_COLOR[sw.role], color: ROLE_COLOR[sw.role] }}
+                />
+                <span className="text-foreground">{sw.w}</span>
+                {sw.role === "toward" && <span className="text-[#5dffd9]/70">→ joins</span>}
+                {sw.role === "away" && <span className="text-[#ff5da2]/70">← leaves</span>}
+                {sw.role === "hero" && <span className="text-accent/70">the word</span>}
+              </div>
+            ))
+          )}
         </div>
 
         {/* chapter caption */}

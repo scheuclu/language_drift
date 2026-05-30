@@ -23,6 +23,8 @@ type Props = {
   dimBackground?: boolean; // fade the cloud so marked words pop
   interactive?: boolean; // default true; false => camera on rails, no user zoom
   fitIndices?: number[] | null; // frame these words (across all years) when set
+  fitMinSpan?: number; // glow: minimum framed extent (UMAP units) so tight clusters keep context
+  markedGlow?: boolean; // glow: modulate marked words by their per-year frequency
 };
 
 const TWEEN_MS = 700;
@@ -59,6 +61,8 @@ export function Space({
   dimBackground = false,
   interactive = true,
   fitIndices,
+  fitMinSpan,
+  markedGlow = false,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -108,6 +112,7 @@ export function Space({
     hoveredIdx,
     labels,
     dimBackground,
+    markedGlow,
   });
   draw.current = {
     markedIndices,
@@ -116,6 +121,7 @@ export function Space({
     hoveredIdx,
     labels,
     dimBackground,
+    markedGlow,
   };
 
   // Initial / resize setup + (interactive only) d3-zoom binding.
@@ -220,6 +226,14 @@ export function Space({
         if (y > maxy) maxy = y;
       }
     }
+    // glow: keep tight clusters from over-zooming — frame at least fitMinSpan,
+    // centered on the cluster, so you see it light up against its surroundings.
+    if (fitMinSpan) {
+      const mcx = (minx + maxx) / 2, mcy = (miny + maxy) / 2;
+      const h2 = fitMinSpan / 2;
+      if (maxx - minx < fitMinSpan) { minx = mcx - h2; maxx = mcx + h2; }
+      if (maxy - miny < fitMinSpan) { miny = mcy - h2; maxy = mcy + h2; }
+    }
     const bx0 = cx + minx * half, bx1 = cx + maxx * half;
     const by0 = cy + miny * half, by1 = cy + maxy * half;
     const bw = Math.max(bx1 - bx0, 1);
@@ -239,7 +253,7 @@ export function Space({
       camStart.current = performance.now();
       camActive.current = true;
     }
-  }, [fitIndices, data, interactive]);
+  }, [fitIndices, data, interactive, fitMinSpan]);
 
   // Render loop (mounted once).
   useEffect(() => {
@@ -352,23 +366,26 @@ export function Space({
         ctx.fill();
       }
 
-      // marked: halo + core
+      // marked: halo + core. In glow mode the intensity tracks the word's
+      // per-year frequency, so a cluster visibly lights up as you scrub.
+      const glowB = D.markedGlow ? brightByYear.current?.[prevYi.current] : undefined;
       for (let i = 0; i < D.markedIndices.length; i++) {
         const idx = D.markedIndices[i];
         const col = D.markedColors[i] ?? [1, 1, 1];
         const x = sx(idx), y = sy(idx);
         const isHi = D.highlightedMarkedIdx === i;
+        const f = glowB ? 0.07 + 0.93 * Math.pow(glowB[idx], 1.6) : 1;
         const haloR = (isHi ? 18 : 12) / tr.k;
         const coreR = (isHi ? 5.5 : 3.5) / tr.k;
         const grad = ctx.createRadialGradient(x, y, 0, x, y, haloR);
-        grad.addColorStop(0, rgbCss(col, 0.85));
-        grad.addColorStop(0.45, rgbCss(col, 0.25));
+        grad.addColorStop(0, rgbCss(col, 0.85 * f));
+        grad.addColorStop(0.45, rgbCss(col, 0.25 * f));
         grad.addColorStop(1, rgbCss(col, 0));
         ctx.fillStyle = grad;
         ctx.beginPath();
         ctx.arc(x, y, haloR, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = rgbCss(col, 1);
+        ctx.fillStyle = rgbCss(col, Math.max(glowB ? 0.15 : 1, f));
         ctx.beginPath();
         ctx.arc(x, y, coreR, 0, Math.PI * 2);
         ctx.fill();
