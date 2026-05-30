@@ -22,12 +22,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config import ALIGNED_DIR, ANCHOR_YEAR, TOKENS_DIR, VOCAB_DIR, YEARS
 from pipeline.vocab import load_vocab
 
-MIN_FREQ_ANYWHERE = 3000
+MIN_FREQ_ANYWHERE = 500  # was 3000; lowered now that data is hosted on Blob (no size cap)
 TOP_K = 25
 SIM_DECIMALS = 3
 DRIFT_DECIMALS = 3
 CHUNK_SIZE = 1024
-WORD_RE = re.compile(r"^[a-z]{3,20}$")
+WORD_RE = re.compile(r"^[a-z]{2,20}$")  # match vectors/tsne/arith so the packed sets align
 OUT_DIR = Path(__file__).resolve().parent.parent / "web" / "public" / "data"
 
 # Words that pass the freq/regex filters and rank high on drift but are noise,

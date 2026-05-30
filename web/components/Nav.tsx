@@ -10,6 +10,7 @@ const LINKS = [
   { href: "/arith", label: "arith" },
   { href: "/space", label: "space" },
   { href: "/gallery", label: "gallery" },
+  { href: "/llm", label: "llm" },
 ];
 
 export function Nav() {

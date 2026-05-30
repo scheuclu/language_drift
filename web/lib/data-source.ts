@@ -3,4 +3,4 @@
 // Override at build time with NEXT_PUBLIC_DATA_BASE.
 export const DATA_BASE =
   process.env.NEXT_PUBLIC_DATA_BASE ??
-  "https://bi6fzils7tgrf7hj.public.blob.vercel-storage.com/data/v3";
+  "https://bi6fzils7tgrf7hj.public.blob.vercel-storage.com/data/v4";

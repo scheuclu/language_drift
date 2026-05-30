@@ -6,7 +6,7 @@ import { loadGallery, loadManifest } from "@/lib/data";
 import type { DriftGallery, Manifest, ManifestWord } from "@/lib/types";
 
 const FREQ_TIERS = [
-  { label: "any (≥ 3k)", value: 3000 },
+  { label: "any (≥ 500)", value: 500 },
   { label: "≥ 5k/yr", value: 5000 },
   { label: "≥ 10k/yr", value: 10000 },
   { label: "≥ 20k/yr", value: 20000 },

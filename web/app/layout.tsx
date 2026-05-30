@@ -35,8 +35,15 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${instrument.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+      {/* suppressHydrationWarning: browser extensions (ColorZilla, Grammarly, etc.)
+          inject attributes like cz-shortcut-listen / contenteditable onto <html>/<body>
+          before React hydrates, causing dev-only mismatch warnings. */}
+      <body
+        className="min-h-full flex flex-col bg-background text-foreground"
+        suppressHydrationWarning
+      >
         <Nav />
         {children}
       </body>

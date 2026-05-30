@@ -24,14 +24,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config import ALIGNED_DIR, TOKENS_DIR, VOCAB_DIR, YEARS
 from pipeline.vocab import load_vocab
 
-MIN_FREQ_ANYWHERE = 3000
+MIN_FREQ_ANYWHERE = 500  # was 3000; lowered now that data is hosted on Blob (no size cap)
 WORD_RE = re.compile(r"^[a-z]{2,20}$")
 OUT_DIR = Path(__file__).resolve().parent.parent / "web" / "public" / "data"
 
 UMAP_N_NEIGHBORS = 30
 UMAP_MIN_DIST = 0.08
 UMAP_METRIC = "cosine"
-RANDOM_STATE = 42
+# random_state=None lets UMAP run multi-threaded (n_jobs=-1). A fixed seed forces
+# single-threaded execution, which is ~5x slower at this point count. The layout
+# is then not bit-reproducible run-to-run — fine for a shipped one-off viz.
+RANDOM_STATE = None
 
 
 def is_clean(word: str) -> bool:
@@ -91,6 +94,7 @@ def main() -> None:
         min_dist=UMAP_MIN_DIST,
         metric=UMAP_METRIC,
         random_state=RANDOM_STATE,
+        n_jobs=-1,
         verbose=True,
         low_memory=True,
     )

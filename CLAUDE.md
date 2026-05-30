@@ -42,7 +42,7 @@ Stage 3  precompute + pack     ─► web/public/data/{manifest.json, vecs.bin,
   (precompute_*.py +               neighbors.bin + index, arith.bin, space*}
    pack_web_data.py)        │     (gitignored — a local build intermediate)
                        ▼ (uploaded, NOT committed to git)
-Stage 4  Vercel Blob           ─► data/v3/* — the client range-fetches one
+Stage 4  Vercel Blob           ─► data/v4/* — the client range-fetches one
                                   word's slice at runtime
 ```
 
