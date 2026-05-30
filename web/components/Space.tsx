@@ -297,17 +297,17 @@ export function Space({
       const bk = buckets.current;
       if (bk) {
         const dim = D.dimBackground;
-        const baseA = dim ? 0.012 : 0.022;
+        const baseA = dim ? 0.008 : 0.012;
         const gainA = dim ? 0.6 : 1.0;
-        const GAMMA = 2.4; // steeper => dim words recede, frequent ones dominate
+        const GAMMA = 3.4; // steeper => dim words recede hard, frequent ones blaze
         // glow pass: soft warm halos beneath the most frequent words
         for (let b = 0; b < N_BUCKETS; b++) {
           const bm = (b + 0.5) / N_BUCKETS;
           if (bm < 0.72) continue;
           const list = bk[b];
           if (list.length === 0) continue;
-          const ga = (dim ? 0.03 : 0.06) * bm;
-          ctx.fillStyle = `rgba(255,222,168,${ga.toFixed(3)})`;
+          const ga = (dim ? 0.045 : 0.09) * bm * bm;
+          ctx.fillStyle = `rgba(255,224,176,${ga.toFixed(3)})`;
           const gr = (2.0 + 7 * (bm - 0.72)) * rscale;
           ctx.beginPath();
           for (let j = 0; j < list.length; j++) {
@@ -325,9 +325,9 @@ export function Space({
           const bm = (b + 0.5) / N_BUCKETS; // bucket midpoint brightness
           let a = baseA + Math.pow(bm, GAMMA) * gainA;
           if (a > 1) a = 1;
-          const cr = Math.round(80 + bm * (255 - 80));
-          const cg = Math.round(98 + bm * (236 - 98));
-          const cb = Math.round(148 + bm * (190 - 148));
+          const cr = Math.round(56 + bm * (255 - 56));
+          const cg = Math.round(72 + bm * (249 - 72));
+          const cb = Math.round(120 + bm * (232 - 120));
           ctx.fillStyle = `rgba(${cr},${cg},${cb},${a.toFixed(3)})`;
           const rr = (0.62 + 1.0 * bm) * rscale;
           ctx.beginPath();
