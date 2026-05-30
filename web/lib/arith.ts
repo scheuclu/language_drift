@@ -4,6 +4,8 @@
 // Word order matches space_index.json — we reuse that index so we don't
 // double-ship the word list.
 
+import { DATA_BASE } from "./data-source";
+
 const DIM = 300;
 
 export type ArithCorpus = {
@@ -21,8 +23,8 @@ export function loadArithCorpus(): Promise<ArithCorpus | null> {
   cache = (async () => {
     try {
       const [idxRes, binRes] = await Promise.all([
-        fetch("/data/space_index.json?v=2"),
-        fetch("/data/arith.bin?v=2"),
+        fetch(`${DATA_BASE}/space_index.json`),
+        fetch(`${DATA_BASE}/arith.bin`),
       ]);
       if (!idxRes.ok || !binRes.ok) return null;
       const idx = (await idxRes.json()) as { words: string[] };

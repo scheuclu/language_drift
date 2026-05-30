@@ -53,9 +53,8 @@ export default function GalleryPage() {
         </div>
         <p className="text-foreground/70 text-sm leading-relaxed">
           Many of the biggest post-2022 drifters aren&apos;t events — they&apos;re
-          words large language models overuse: <em>delve</em>,{" "}
-          <em>underscores</em>, <em>resonates</em>, <em>prioritizing</em>,{" "}
-          <em>multifaceted</em>. As AI-generated text floods Common Crawl, their
+          words large language models overuse: <em>delve</em>, <em>aligns</em>,{" "}
+          <em>resonates</em>, <em>impactful</em>, <em>lastly</em>. As AI-generated text floods Common Crawl, their
           company blurs toward a flat, promotional register. You&apos;re watching
           the web start to sound like ChatGPT.
         </p>

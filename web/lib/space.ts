@@ -1,3 +1,5 @@
+import { DATA_BASE } from "./data-source";
+
 export type SpaceIndex = {
   words: string[];
   years: number[];
@@ -18,8 +20,8 @@ export function loadSpace(): Promise<SpaceData | null> {
   cache = (async () => {
     try {
       const [idxRes, binRes] = await Promise.all([
-        fetch("/data/space_index.json?v=2"),
-        fetch("/data/space.bin?v=2"),
+        fetch(`${DATA_BASE}/space_index.json`),
+        fetch(`${DATA_BASE}/space.bin`),
       ]);
       if (!idxRes.ok || !binRes.ok) return null;
       const index = (await idxRes.json()) as SpaceIndex;

@@ -8,7 +8,7 @@ import { SearchBar } from "@/components/SearchBar";
 import { loadManifest, loadWord } from "@/lib/data";
 import type { Manifest, WordData } from "@/lib/types";
 
-const DEFAULT_WORD = "mask";
+const DEFAULT_WORD = "distancing";
 
 function ExplorePageInner() {
   const router = useRouter();

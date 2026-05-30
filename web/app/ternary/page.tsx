@@ -18,8 +18,8 @@ import {
 } from "@/lib/vectors";
 import type { Manifest, ManifestWord } from "@/lib/types";
 
-const DEFAULT_ANCHORS: [string, string, string] = ["airline", "variant", "cannabis"];
-const DEFAULT_TARGETS = ["delta"];
+const DEFAULT_ANCHORS: [string, string, string] = ["encryption", "scam", "money"];
+const DEFAULT_TARGETS = ["crypto"];
 const TARGET_COLORS = ["#f4b860", "#ff5da2", "#5dd5e8"];
 const MAX_TARGETS = 3;
 

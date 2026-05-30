@@ -17,9 +17,10 @@
 /.next/
 /out/
 
-# precomputed data shards are NOT ignored — they're committed so Vercel's
-# Git integration can ship them. Regenerate via scripts/precompute_*.py
-# after retraining and commit the new snapshot.
+# precomputed data lives on Vercel Blob (see lib/data-source.ts), NOT in git.
+# Regenerate via scripts/precompute_*.py, pack with scripts/pack_web_data.py,
+# then upload packed/ + manifest/arith/space to Blob under data/vN/.
+/public/data/
 
 # dev server log
 dev.log

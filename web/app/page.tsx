@@ -11,7 +11,7 @@ import { Constellation } from "@/components/Constellation";
 import { loadWord } from "@/lib/data";
 import type { WordData } from "@/lib/types";
 
-const HERO_WORD = "mask";
+const HERO_WORD = "distancing";
 
 type Chapter = {
   yearIndex: number;
@@ -26,41 +26,41 @@ const CHAPTERS: Chapter[] = [
     yearIndex: 0,
     year: 2014,
     kicker: "Before everything",
-    title: "A mask went on your skin.",
+    title: "You distanced yourself from an idea.",
     body:
-      "In the early 2010s the word lived in the bathroom cabinet — skin, facial, lip, makeup, hair. A mask was a beauty product: something you spread on, waited out, and rinsed off.",
+      "In 2014 distancing was a stance, not a rule. You distanced yourself from a claim, a belief, a criticism — the word traveled with contradictory, irrational, guilt, embraced, absurd. It was something you did in your head.",
   },
   {
-    yearIndex: 5,
-    year: 2019,
+    yearIndex: 3,
+    year: 2017,
     kicker: "Quiet drift",
-    title: "Ten years in the cabinet.",
+    title: "A way of holding things at arm's length.",
     body:
-      "Through the 2010s mask barely moves — lotion, cleanser, glow, shampoo, soap. The neighborhood is skincare and it stays skincare. Nothing happens in this chapter — and that's the point.",
+      "Through the mid-2010s it stays abstract — perception, beliefs, oneself, deliberately. To distance was to take a position: from a person, an ideology, an uncomfortable truth. Nothing happens in this chapter — and that's the point.",
   },
   {
     yearIndex: 6,
     year: 2020,
     kicker: "Spring 2020",
-    title: "Everything pivots in three months.",
+    title: "Overwritten in a single season.",
     body:
-      "Mid-year a second cluster crashes in next to the lotions — wearing, protective, sanitizer, gloves, disposable. For the first time the word is about covering your face, not treating it.",
+      "By mid-2020 the whole neighborhood is replaced: pandemic, coronavirus, quarantine, masks, gatherings, lockdown. Overnight the word stops being a mental stance and becomes a measurement — how many feet apart to stand.",
   },
   {
-    yearIndex: 7,
-    year: 2021,
-    kicker: "The full reorientation",
-    title: "Cloth. Disposable. PPE.",
+    yearIndex: 8,
+    year: 2022,
+    kicker: "The meaning hardens",
+    title: "Six feet. Masks. Gatherings.",
     body:
-      "By 2021 the top neighbors are wearing, protective, disposable, wash, cloth, ppe, gloves, nose. A cosmetic noun has become one of the most concrete words in English — and the skincare sense is pushed to the back.",
+      "By 2022 every top neighbor is physical: masks, lockdown, quarantine, vaccinated, gatherings. The old sense isn't faded — it's gone. Distancing is now something bodies do in space, not something minds do with ideas.",
   },
   {
     yearIndex: 11,
     year: 2025,
     kicker: "After",
-    title: "The word never fully goes back.",
+    title: "This one never goes back.",
     body:
-      "Skincare returns to the front — facial, makeup, lotion, serum — but wearing and protective never leave. Mask is permanently bilingual now: the thing you put on your face, and the thing you put over it.",
+      "Most words drift and partly return. Distancing doesn't. Five years on it's still pandemic, coronavirus, quarantine, vaccinated — the 2014 meaning, distancing yourself from an idea, erased completely.",
   },
 ];
 
@@ -106,9 +106,9 @@ export default function LandingPage() {
             <em>while you're looking away.</em>
           </h1>
           <p className="text-foreground/70 text-lg lg:text-xl mt-8 max-w-2xl mx-auto leading-relaxed">
-            Twelve separate Word2Vec models, one per year, trained on a
-            billion tokens of Common Crawl each. Below: <em>mask</em> — and the
-            company it kept, year by year.
+            Twelve Word2Vec models, one per year, trained on a billion tokens of
+            Common Crawl each and locked to a shared frame. Below:{" "}
+            <em>distancing</em> — and the company it kept, year by year.
           </p>
           <div className="mt-10 text-muted text-sm font-mono">
             scroll to begin ↓
@@ -171,13 +171,14 @@ export default function LandingPage() {
         <p>
           For each year 2014–2025, we train a fresh skip-gram-with-negative-sampling
           Word2Vec (300d, window 10, 15 negatives) on a 1B-token slice of Common
-          Crawl. The 12 resulting spaces are aligned with orthogonal Procrustes
-          so 2018's coordinate system is the reference. A word's drift in a given
-          year is the cosine distance from its 2018 vector; the total we rank by
-          sums that across the other eleven years. Stable anchors like{" "}
-          <em>music</em> or <em>father</em> total around 1.0 — the noise floor of
-          the method. The biggest movers — <em>defi</em>, <em>nft</em>,{" "}
-          <em>distancing</em>, <em>omicron</em> — clear 9.
+          Crawl. All twelve years are trained against one shared <em>compass</em> —
+          a context space learned across the whole period and then frozen — so
+          every year lands in the same coordinate system directly, with no
+          post-hoc alignment. A word's drift in a given year is the cosine
+          distance from its 2018 vector, summed across the other eleven years.
+          Stable anchors like <em>music</em> or <em>father</em> stay under 1.0 —
+          the noise floor of the method. The biggest movers — <em>nft</em>,{" "}
+          <em>defi</em>, <em>omicron</em> — clear 8.
         </p>
       </section>
     </main>
@@ -229,7 +230,7 @@ const MORE_STORIES = [
     blurb: "Cryptography → currency, in five years.",
   },
   { word: "lockdown", blurb: "An emergency protocol becomes everyday." },
-  { word: "chain", blurb: "Retail stores → supply-chain logistics." },
+  { word: "gummies", blurb: "Candy and vitamins → CBD and keto." },
   { word: "zoom", blurb: "A verb. Then a meeting." },
   { word: "viral", blurb: "From outbreaks to Instagram." },
   { word: "token", blurb: "A software token → a crypto token." },

@@ -41,8 +41,8 @@ export default function SpacePage() {
     "crypto",
     "lockdown",
     "zoom",
-    "mask",
-    "woke",
+    "distancing",
+    "pandemic",
   ]);
   const [playing, setPlaying] = useState(false);
   const [hoveredChip, setHoveredChip] = useState<number | null>(null);

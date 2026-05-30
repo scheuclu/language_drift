@@ -1,4 +1,8 @@
-// 12 years × 300 dims, C-order float32 = 14400 bytes
+// 12 years × 300 dims, C-order float32 = 14400 bytes per word.
+// All words are packed into one vecs.bin in space_index row order; we map
+// word -> row and Range-fetch a single 14400-byte slice.
+import { DATA_BASE } from "./data-source";
+
 const DIM = 300;
 const N_YEARS = 12;
 const FILE_BYTES = N_YEARS * DIM * 4;
@@ -8,6 +12,19 @@ export type YearVecs = Float32Array; // length N_YEARS * DIM
 const cache = new Map<string, YearVecs>();
 const inflight = new Map<string, Promise<YearVecs | null>>();
 
+let rowMap: Promise<Map<string, number>> | null = null;
+function loadRowMap(): Promise<Map<string, number>> {
+  if (!rowMap) {
+    rowMap = fetch(`${DATA_BASE}/space_index.json`)
+      .then((r) => r.json())
+      .then(
+        (idx: { words: string[] }) =>
+          new Map(idx.words.map((w, i) => [w, i] as const)),
+      );
+  }
+  return rowMap;
+}
+
 export async function loadVectors(word: string): Promise<YearVecs | null> {
   const key = word.toLowerCase();
   const cached = cache.get(key);
@@ -16,16 +33,23 @@ export async function loadVectors(word: string): Promise<YearVecs | null> {
   if (pending) return pending;
   const p = (async () => {
     try {
-      const res = await fetch(`/data/vecs/${encodeURIComponent(key)}.bin?v=2`);
+      const row = (await loadRowMap()).get(key);
+      if (row === undefined) return null;
+      const start = row * FILE_BYTES;
+      const res = await fetch(`${DATA_BASE}/vecs.bin`, {
+        headers: { Range: `bytes=${start}-${start + FILE_BYTES - 1}` },
+      });
       if (!res.ok) return null;
       const buf = await res.arrayBuffer();
       if (buf.byteLength !== FILE_BYTES) {
-        console.warn(`unexpected vector file size for "${key}": ${buf.byteLength}`);
+        console.warn(`unexpected vector slice for "${key}": ${buf.byteLength}`);
         return null;
       }
       const arr = new Float32Array(buf);
       cache.set(key, arr);
       return arr;
+    } catch {
+      return null;
     } finally {
       inflight.delete(key);
     }
