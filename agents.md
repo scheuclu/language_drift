@@ -36,39 +36,50 @@ Measure how English language usage shifts over time by training word embeddings 
 
 **Model:** Skip-gram with Negative Sampling (SGNS)
 - `embedding_dim = 300`, `window_size = 10`, `num_negatives = 15`
-- `batch_size = 4096`, `lr = 0.025` (linear decay to 1e-4), 1 epoch
+- `batch_size = 32768`, `lr = 0.0075` (linear decay, floor 1e-5), 3 epochs
 - Frequent word subsampling (threshold 1e-4)
 - Noise distribution: unigram^(3/4) for negative sampling
-- Sparse embeddings + `SparseAdam` optimizer
+- Two dense embedding tables + dense `Adam` optimizer
 - Fixed seed (42) + deterministic CUDA for reproducibility
+
+**TWEC / compass (current — `scripts/twec_full.py`):** first train a shared
+"compass" (the context matrix) on all years combined, freeze it, then train
+each year's word vectors against that frozen compass. Every year lands in one
+coordinate frame directly — no Procrustes. This supersedes the independent
+per-year training + alignment below (kept as legacy).
 
 **Data loading:** Load the full token ID array into RAM (~4GB per year, 128GB available). Use a map-style `Dataset` with random-access indexing instead of `IterableDataset`. This enables proper shuffling and fast multi-worker `DataLoader` with no I/O bottleneck.
 
 **Output:** Save `center_embeddings.weight` as numpy array per year (~1-3 hours per year).
 
-### Stage 3: Alignment & Drift
+### Stage 3: Drift (shared space — no alignment)
 
-**3A — Orthogonal Procrustes Alignment**
-- Anchor alignment: align all years to `ANCHOR_YEAR` (2018) as reference
-- SVD of cross-covariance matrix: `U, _, Vt = svd(W_ref.T @ W_t)`, `R = Vt.T @ U.T`
-- Verify alignment quality using stable anchor words (function words)
+With TWEC every year already shares one coordinate frame, so drift is measured
+directly (no Procrustes step).
 
-**3B — Drift Metrics**
-- Cosine distance between consecutive years per word
-- Cosine distance from base year (2018) per word
-- Total drift, max single-year drift, mean drift
-- Output as Parquet files
+**Drift Metrics** (relative to `ANCHOR_YEAR` 2018)
+- Cosine distance from the 2018 vector, per word per year
+- Total drift (summed over the 11 non-anchor years), max, mean
+- Output as Parquet + the per-word web shards
 
-### Stage 4: Extend Streamlit Dashboard
+*Legacy:* `analysis/alignment.py` (orthogonal Procrustes, SVD of the
+cross-covariance, anchored to 2018) is retained but superseded by TWEC.
 
-- **Drift Leaderboard** — top drifting words, sortable/filterable
-- **Word Timeline** — cosine distance from reference over time for a selected word
-- **Year-Pair Explorer** — top drifting words between any two years
+### Stage 4: Web app + data hosting
+
+The interactive site is a **Next.js app in `web/`** (not the Streamlit `app.py`,
+which is just a FineWeb sample browser): scrollytelling landing, `/explore`
+constellation, `/ternary`, `/arith`, `/space` (UMAP), `/gallery`.
+
+`scripts/precompute_*.py` emit per-word shards; `scripts/pack_web_data.py` packs
+them into `vecs.bin` + `neighbors.bin` (+ offset index); everything is uploaded
+to **Vercel Blob** under `data/vN/` — NOT committed to git. The client
+range-fetches a single word's slice. See `web/README.md`.
 
 ## Execution Order
 
 ```
-1A (parallel per year) → 1B → 1C (parallel per year) → 2 (sequential, GPU) → 3A → 3B → 4
+1A (parallel per year) → 1B → 1C (parallel per year) → 2 TWEC (compass + per-year slices, GPU) → 3 drift → 4 precompute + pack + upload to Blob
 ```
 
 ## Project Structure
@@ -90,23 +101,29 @@ language_drift/
     dataset.py                   # Map-style Dataset for skip-gram pairs (in-RAM)
     train.py                     # Training loop (GPU, LR decay, save)
 
-  analysis/                      # Stage 3: Alignment & Drift
-    alignment.py                 # Orthogonal Procrustes alignment
-    drift.py                     # Cosine distance drift metrics
+  analysis/                      # legacy Stage 3
+    alignment.py                 # orthogonal Procrustes (superseded by TWEC)
+    drift.py                     # cosine distance drift metrics
 
   scripts/                       # CLI entry points
     run_data_pipeline.py         # --year 2014 | --all | --build-vocab | --encode
-    run_training.py              # --year 2014 | --all | --device cuda
-    run_analysis.py              # --align | --drift | --all
+    twec_full.py                 # TWEC/compass trainer (current)
+    run_training.py              # legacy independent per-year trainer
+    run_analysis.py              # legacy Procrustes align + drift
+    precompute_*.py              # emit web data shards from models/aligned/
+    pack_web_data.py             # pack shards -> vecs.bin + neighbors.bin (+index)
 
   data/                          # gitignored
     tokens/                      # tokenized text + numpy ID arrays per year
     vocab/                       # shared vocabulary
 
   models/                        # gitignored
-    embeddings/                  # raw embeddings per year
-    aligned/                     # aligned embeddings per year
+    embeddings_twec_full/        # TWEC compass output (current shipped embeddings)
+    embeddings/                  # legacy independent per-year embeddings
+    aligned/                     # web-export source (holds the TWEC vectors)
     drift/                       # drift result parquets
+
+  web/                           # Next.js app; data hosted on Vercel Blob (not in git)
 ```
 
 ## Tech Stack
@@ -115,8 +132,9 @@ language_drift/
 - **datasets** (Hugging Face) — streaming access to FineWeb
 - **torch** — GPU-accelerated Word2Vec training
 - **numpy / pandas / pyarrow** — data processing and storage
-- **scipy** — Procrustes alignment (SVD)
-- **streamlit / plotly** — interactive visualization
+- **scipy** — SVD (legacy Procrustes) + Spearman eval
+- **Next.js / TypeScript / Vercel Blob** — interactive web app + data hosting
+- **streamlit** — `app.py` FineWeb sample browser (dev utility)
 - **tqdm** — progress bars
 
 ## Estimated Resources

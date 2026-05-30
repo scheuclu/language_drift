@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Trains per-year Word2Vec (SGNS) embeddings on FineWeb (Common Crawl) slices from 2014–2025, aligns them, and measures cosine drift to quantify how English usage shifts over time.
+Trains per-year Word2Vec (SGNS) embeddings on FineWeb (Common Crawl) slices from 2014–2025 into a single shared coordinate space (TWEC/compass), and measures cosine drift to quantify how English usage shifts over time. The interactive site lives in `web/` (Next.js) and reads its data from Vercel Blob.
 
 ## Environment
 
@@ -34,23 +34,29 @@ The pipeline has hard ordering dependencies — each stage consumes artifacts th
 1C encode                      ─► data/tokens/{year}.npy  (int32, ~4 GB/year)
                        │
                        ▼ (loads npy fully into RAM)
-Stage 2  train (GPU)           ─► models/embeddings/{year}.npy  (V × 300)
-                       │
+Stage 2  train — TWEC/compass  ─► models/embeddings_twec_full/{year}.npy (V × 300)
+  (scripts/twec_full.py)          shared frozen-context frame, no alignment;
+                       │          copied into models/aligned/ for the export
                        ▼
-Stage 3a align (Procrustes)    ─► models/aligned/{year}.npy
-Stage 3b drift                 ─► models/drift/*.parquet
+Stage 3  precompute + pack     ─► web/public/data/{manifest.json, vecs.bin,
+  (precompute_*.py +               neighbors.bin + index, arith.bin, space*}
+   pack_web_data.py)        │     (gitignored — a local build intermediate)
+                       ▼ (uploaded, NOT committed to git)
+Stage 4  Vercel Blob           ─► data/v3/* — the client range-fetches one
+                                  word's slice at runtime
 ```
 
 Key cross-cutting facts:
-- **All hyperparameters and paths live in `config.py`.** Don't hardcode them in modules — import. `YEARS = range(2014, 2026)`, `ANCHOR_YEAR=2018`, `EMBEDDING_DIM=300`, `BATCH_SIZE=4096`, `WINDOW_SIZE=10`, `NUM_NEGATIVE_SAMPLES=15`, `MAX_VOCAB_SIZE=200_000`, `MIN_WORD_FREQ=50`, `MIN_YEARS_FOR_VOCAB=11`, `SEED=42`.
+- **All hyperparameters and paths live in `config.py`.** Don't hardcode them in modules — import. `YEARS = range(2014, 2026)`, `ANCHOR_YEAR=2018`, `EMBEDDING_DIM=300`, `BATCH_SIZE=32768`, `WINDOW_SIZE=10`, `NUM_NEGATIVE_SAMPLES=15`, `NUM_EPOCHS=3`, `LEARNING_RATE=0.0075`, `MAX_VOCAB_SIZE=200_000`, `MIN_WORD_FREQ=50`, `MIN_YEARS_FOR_VOCAB=11`, `SEED=42`.
 - **Vocab is shared across all years** — every year's embedding matrix has the same row order keyed by `vocab.json`. This is what makes alignment and drift comparison possible. Never re-build vocab per year or re-order rows.
 - **A year is composed of multiple `CC-MAIN-YYYY-WW` snapshots** registered in `pipeline/snapshot_registry.py`. `TARGET_TOKENS_PER_YEAR` (1B) is split evenly across the year's snapshots, and each snapshot is filtered to `language_score >= LANGUAGE_SCORE_THRESHOLD` (0.65).
 - **Stage 1A is resumable** via `data/tokens/{year}_checkpoint.json` (per-snapshot completion). If you change the tokenizer or filter, you must delete the checkpoint and `_tokenized.txt.gz` for that year — partial re-runs will mix incompatible token streams.
-- **Stage 2 loads the full `{year}.npy` token array into RAM** (~4 GB/year, 128 GB host assumed). The `SkipGramDataset` is map-style (not iterable) — keep it that way; iterable datasets break shuffling and the multi-worker `DataLoader`.
-- **SGNS implementation detail (`training/word2vec.py`):** sparse embeddings + `SparseAdam`. Two separate embedding tables (`center_embeddings`, `context_embeddings`); only `center_embeddings.weight` is saved as the final per-year embedding.
-- **Subsampling and negative-sampling noise table are built inside `SkipGramDataset.__init__`** from `word_freqs`. The noise distribution is unigram^0.75 with `<UNK>` (id 0) zeroed out.
+- **Stage 2 loads the full `{year}.npy` token array into RAM** (~4 GB/year, 128 GB host assumed); `GPUSkipGramSampler` then moves the subsampled token stream onto the GPU and draws batches directly in the train loop via `sample_batch` (no `DataLoader`). The map-style `SkipGramDataset` in `training/dataset.py` is legacy/unused.
+- **SGNS implementation detail (`training/word2vec.py`):** two dense embedding tables (`center_embeddings`, `context_embeddings`) trained with dense `torch.optim.Adam`; only `center_embeddings.weight` is saved as the final per-year embedding. In TWEC, `context_embeddings` is frozen to the shared compass and only `center_embeddings` is trained per year.
+- **Subsampling and the negative-sampling noise table are built inside `GPUSkipGramSampler.__init__`** (`training/dataset.py`) from `word_freqs`. The noise distribution is unigram^0.75 with `<UNK>` (id 0) zeroed out.
 - **Determinism:** `set_seed(SEED)` is called at the top of `train_year` and sets `torch.backends.cudnn.deterministic = True`. Preserve this when editing the training loop.
-- **Alignment is anchored to `ANCHOR_YEAR` (2018)** — chosen because it sits centrally in the time range and has many CC-MAIN snapshots, so its embedding is stable. All other years are rotated into 2018's space via orthogonal Procrustes on L2-normalized embeddings (`analysis/alignment.py`). 2013 was previously the anchor but is now excluded from `YEARS` entirely (too few snapshots).
+- **Shared space comes from TWEC/compass, not Procrustes.** `scripts/twec_full.py` trains one shared context "compass" on all years combined, freezes it, then trains each year's word vectors against that frozen compass — so every year lands in one coordinate system *directly*, with no post-hoc alignment. Its output (`models/embeddings_twec_full/`) is copied into `models/aligned/` for the web export. `ANCHOR_YEAR` (2018) is still the drift *reference* (drift = cosine distance from 2018, summed over the other 11 years); 2013 is excluded from `YEARS`. The legacy path — independent per-year training (`run_training.py`) + orthogonal Procrustes (`run_analysis.py --align`, `analysis/alignment.py`) — remains in the repo but is **superseded** by TWEC. TWEC validated ~30% lower drift noise floor (0.14→0.10) and SNR 4.4→5.3× vs Procrustes, with equal-or-better intrinsic benchmarks.
+- **Web data is hosted on Vercel Blob, NOT git.** `precompute_*.py` emit per-word shards under `web/public/data/` (gitignored build intermediate); `scripts/pack_web_data.py` packs `vecs/` → `vecs.bin` (fixed 14400-byte stride in `space_index` row order) and `w/` → `neighbors.bin` + offset index. These plus `manifest.json`/`arith.bin`/`space.*` are uploaded to the **`language-drift-data` Blob store** under `data/vN/`; the client range-fetches one word's slice (`web/lib/data-source.ts`). To update after a retrain: re-pack, upload to a new `data/vN`, bump `NEXT_PUBLIC_DATA_BASE` / the `data-source.ts` default. Never commit `web/public/data`.
 
 ## Things that look off but aren't
 
