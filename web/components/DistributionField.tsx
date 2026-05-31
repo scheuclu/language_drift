@@ -221,9 +221,13 @@ export function DistributionField({ data, yearIndex, onHover }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [n]);
 
-  // hover: nearest particle
+  // hover: nearest particle (throttled ~30fps to keep the O(n) scan cheap)
+  const lastHover = useRef(0);
   const onMove = (clientX: number, clientY: number) => {
     if (!onHover) return;
+    const tnow = performance.now();
+    if (tnow - lastHover.current < 33) return;
+    lastHover.current = tnow;
     const rect = canvasRef.current!.getBoundingClientRect();
     const mx = clientX - rect.left, my = clientY - rect.top;
     let best = -1, bd = 100;

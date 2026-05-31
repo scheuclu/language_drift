@@ -84,6 +84,8 @@ export default function LLMPage() {
   const [pPlaying, setPPlaying] = useState(false);
   const [hover, setHover] = useState<HoverInfo | null>(null);
   const pPlayRef = useRef<number | null>(null);
+  const fieldRef = useRef<HTMLDivElement>(null);
+  const autoPlayed = useRef(false);
 
   useEffect(() => {
     fetch(`${DATA_BASE}/llm.json`)
@@ -142,6 +144,38 @@ export default function LLMPage() {
     };
   }, [pPlaying, pdata]);
 
+  // auto-play once when the field scrolls into view (the "wow" lands on arrival)
+  useEffect(() => {
+    if (!pdata) return;
+    const el = fieldRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting && !autoPlayed.current) {
+            autoPlayed.current = true;
+            setPYear(0);
+            setPPlaying(true);
+          }
+        }
+      },
+      { threshold: 0.55 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [pdata]);
+
+  // narration that tracks the playhead
+  const phase = (() => {
+    const y = pYears[pYear];
+    if (y === undefined) return "";
+    if (y <= 2019) return "For years the whole language holds in one tight spike — everything roughly where it was.";
+    if (y <= 2022) return "It starts to spread. A few words pull away from the center.";
+    if (y === 2023) return "ChatGPT ships. The spike begins to tear open.";
+    if (y === 2024) return "The biggest lurch of the decade — a gold tail of surging words, a blue mass sinking.";
+    return "The distribution has come apart: the whole language re-weighted in three years.";
+  })();
+
   const shown = useMemo(() => {
     if (!data) return [];
     const t = FILTERS.find((f) => f.key === filter)!.test;
@@ -175,7 +209,7 @@ export default function LLMPage() {
           <>
             {/* ---------- THE LIVING DISTRIBUTION (particle hero) ---------- */}
             <section className="mt-10">
-              <div className="relative rounded-2xl overflow-hidden border border-white/[0.06]">
+              <div ref={fieldRef} className="relative rounded-2xl overflow-hidden border border-white/[0.06]">
                 {pdata ? (
                   <DistributionField data={pdata} yearIndex={pYear} onHover={setHover} />
                 ) : (
@@ -183,6 +217,22 @@ export default function LLMPage() {
                     loading 44,714 words…
                   </div>
                 )}
+
+                {/* big year + phase narration */}
+                <div className="absolute top-4 left-5 right-5 z-10 pointer-events-none flex items-start justify-between gap-4">
+                  <p className="text-foreground/70 text-xs lg:text-sm max-w-md leading-snug min-h-[2.5em]">
+                    {phase}
+                  </p>
+                  <span className="font-display text-4xl lg:text-6xl leading-none tabular-nums text-foreground/90 drop-shadow">
+                    {pYears[pYear]}
+                  </span>
+                </div>
+
+                {/* legend */}
+                <div className="absolute bottom-12 left-5 right-5 z-10 pointer-events-none flex justify-between text-[11px] font-mono uppercase tracking-wider">
+                  <span className="text-[#6ea8ff]/80">← got rarer</span>
+                  <span className="text-[#f4b860]/80">got more common →</span>
+                </div>
                 {hover && (
                   <div
                     className="absolute pointer-events-none z-10 px-2 py-1 rounded bg-black/80 border border-white/15 text-xs font-mono whitespace-nowrap -translate-x-1/2"
@@ -213,17 +263,29 @@ export default function LLMPage() {
                 >
                   {pAtEnd ? "↻ replay" : pPlaying ? "⏸ pause" : "▶ watch it"}
                 </button>
-                <input
-                  type="range"
-                  min={0}
-                  max={Math.max(0, pYears.length - 1)}
-                  value={pYear}
-                  onChange={(e) => {
-                    setPPlaying(false);
-                    setPYear(parseInt(e.target.value, 10));
-                  }}
-                  className="year-slider flex-1"
-                />
+                <div className="relative flex-1">
+                  {pYears.length > 1 && (
+                    <div
+                      className="absolute -top-4 pointer-events-none"
+                      style={{ left: `${(8.5 / (pYears.length - 1)) * 100}%` }}
+                    >
+                      <span className="-translate-x-1/2 inline-block text-[9px] font-mono uppercase tracking-wider text-accent/80 whitespace-nowrap">
+                        ChatGPT ↓
+                      </span>
+                    </div>
+                  )}
+                  <input
+                    type="range"
+                    min={0}
+                    max={Math.max(0, pYears.length - 1)}
+                    value={pYear}
+                    onChange={(e) => {
+                      setPPlaying(false);
+                      setPYear(parseInt(e.target.value, 10));
+                    }}
+                    className="year-slider w-full"
+                  />
+                </div>
                 <span className="font-mono text-base tabular-nums text-foreground w-14 text-right shrink-0">
                   {pYears[pYear]}
                 </span>
