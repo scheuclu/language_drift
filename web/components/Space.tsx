@@ -37,6 +37,7 @@ const B_LO = Math.log10(0.5);
 const B_HI = Math.log10(200);
 const B_RANGE = B_HI - B_LO;
 const N_BUCKETS = 24;
+const TRAIL_LEN = 18; // comet-trail length (frames) for moving marked words
 function brightnessOf(pm: number): number {
   if (pm <= 0) return 0;
   const b = (Math.log10(pm + 0.1) - B_LO) / B_RANGE;
@@ -85,6 +86,8 @@ export function Space({
   // brightness: per-year brightness arrays + current year's points bucketed by it
   const brightByYear = useRef<Float32Array[] | null>(null);
   const buckets = useRef<number[][] | null>(null);
+  // per-marked-word recent world positions, for comet trails
+  const trail = useRef<Map<number, number[]>>(new Map());
 
   const n = data.index.n_words;
 
@@ -382,6 +385,32 @@ export function Space({
           ctx.arc(x, y, 0.9 * rscale, 0, Math.PI * 2);
         }
         ctx.fill();
+      }
+
+      // comet trails — marked words streak as they migrate across years
+      {
+        const curMarked = new Set(D.markedIndices);
+        for (const k of trail.current.keys()) if (!curMarked.has(k)) trail.current.delete(k);
+        ctx.lineCap = "round";
+        for (let i = 0; i < D.markedIndices.length; i++) {
+          const idx = D.markedIndices[i];
+          let buf = trail.current.get(idx);
+          if (!buf) { buf = []; trail.current.set(idx, buf); }
+          buf.push(cur[idx * 2], cur[idx * 2 + 1]);
+          if (buf.length > TRAIL_LEN * 2) buf.splice(0, buf.length - TRAIL_LEN * 2);
+          const pts = buf.length / 2;
+          if (pts < 3) continue;
+          const col = D.markedColors[i] ?? [1, 1, 1];
+          for (let s = 1; s < pts; s++) {
+            const f = s / pts;
+            ctx.strokeStyle = rgbCss(col, f * f * 0.6);
+            ctx.lineWidth = (0.3 + 3.4 * f) / tr.k;
+            ctx.beginPath();
+            ctx.moveTo(cx + buf[(s - 1) * 2] * half, cy + buf[(s - 1) * 2 + 1] * half);
+            ctx.lineTo(cx + buf[s * 2] * half, cy + buf[s * 2 + 1] * half);
+            ctx.stroke();
+          }
+        }
       }
 
       // marked: halo + core. In glow mode the intensity tracks the word's
