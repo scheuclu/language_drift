@@ -2,8 +2,17 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DATA_BASE } from "@/lib/data-source";
+import type { ParticleData } from "@/components/DistributionField";
+
+const DistributionField = dynamic(
+  () => import("@/components/DistributionField").then((m) => m.DistributionField),
+  { ssr: false },
+);
+
+type HoverInfo = { w: string; lift: number; x: number; y: number };
 
 type Cat = "register" | "coinage" | "gambling" | "adult" | "tech" | "other";
 type Riser = {
@@ -70,6 +79,11 @@ export default function LLMPage() {
   const [data, setData] = useState<LLMData | null>(null);
   const [filter, setFilter] = useState<Filter>("register");
   const [limit, setLimit] = useState(30);
+  const [pdata, setPdata] = useState<ParticleData | null>(null);
+  const [pYear, setPYear] = useState(0);
+  const [pPlaying, setPPlaying] = useState(false);
+  const [hover, setHover] = useState<HoverInfo | null>(null);
+  const pPlayRef = useRef<number | null>(null);
 
   useEffect(() => {
     fetch(`${DATA_BASE}/llm.json`)
@@ -77,6 +91,56 @@ export default function LLMPage() {
       .then(setData)
       .catch(() => {});
   }, []);
+
+  // load the per-word particle field (every established word, per year)
+  useEffect(() => {
+    (async () => {
+      try {
+        const [jr, br] = await Promise.all([
+          fetch(`${DATA_BASE}/llm_particles.json`),
+          fetch(`${DATA_BASE}/llm_particles.bin`),
+        ]);
+        if (!jr.ok || !br.ok) return;
+        const idx = (await jr.json()) as { words: string[]; years: number[]; n: number; base_years: number[] };
+        const all = new Float32Array(await br.arrayBuffer());
+        const { n, years } = idx;
+        const pm: Float32Array[] = [];
+        for (let yi = 0; yi < years.length; yi++) pm.push(all.subarray(yi * n, (yi + 1) * n));
+        const bi = idx.base_years.map((y) => years.indexOf(y));
+        const base = new Float32Array(n);
+        for (let i = 0; i < n; i++) {
+          let s = 0;
+          for (const b of bi) s += pm[b][i];
+          base[i] = s / bi.length;
+        }
+        setPdata({ words: idx.words, years, pm, base });
+      } catch {
+        /* particle field unavailable */
+      }
+    })();
+  }, []);
+
+  const pYears = pdata?.years ?? data?.years ?? [];
+  const pAtEnd = pYears.length > 0 && pYear >= pYears.length - 1;
+
+  // play loop for the particle field
+  useEffect(() => {
+    if (!pPlaying || !pdata) return;
+    const tick = () => {
+      setPYear((y) => {
+        if (y + 1 >= pdata.years.length) {
+          setPPlaying(false);
+          return y;
+        }
+        return y + 1;
+      });
+      pPlayRef.current = window.setTimeout(tick, 1050);
+    };
+    pPlayRef.current = window.setTimeout(tick, 1050);
+    return () => {
+      if (pPlayRef.current !== null) window.clearTimeout(pPlayRef.current);
+    };
+  }, [pPlaying, pdata]);
 
   const shown = useMemo(() => {
     if (!data) return [];
@@ -109,29 +173,91 @@ export default function LLMPage() {
 
         {data && (
           <>
-            {/* ---------- THE RIDGELINE (hero visual) ---------- */}
-            <section className="mt-12">
-              <RidgePlot ridge={data.ridge} years={data.years} chatgptX={data.chatgpt_x} />
+            {/* ---------- THE LIVING DISTRIBUTION (particle hero) ---------- */}
+            <section className="mt-10">
+              <div className="relative rounded-2xl overflow-hidden border border-white/[0.06]">
+                {pdata ? (
+                  <DistributionField data={pdata} yearIndex={pYear} onHover={setHover} />
+                ) : (
+                  <div className="h-[60vh] min-h-[420px] grid place-items-center text-muted font-mono text-sm">
+                    loading 44,714 words…
+                  </div>
+                )}
+                {hover && (
+                  <div
+                    className="absolute pointer-events-none z-10 px-2 py-1 rounded bg-black/80 border border-white/15 text-xs font-mono whitespace-nowrap -translate-x-1/2"
+                    style={{ left: hover.x, top: Math.max(8, hover.y - 30) }}
+                  >
+                    <span style={{ color: hover.lift > 0.35 ? "#f4b860" : hover.lift < -0.35 ? "#6ea8ff" : "#cfd2da" }}>
+                      {hover.w}
+                    </span>
+                    <span className="text-muted ml-2">
+                      {hover.lift >= 0
+                        ? `×${(2 ** hover.lift).toFixed(2 ** hover.lift >= 10 ? 0 : 1)}`
+                        : `${Math.round(2 ** hover.lift * 100)}% of 2014`}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* transport */}
+              <div className="mt-4 flex items-center gap-3 max-w-2xl">
+                <button
+                  onClick={() => {
+                    if (pAtEnd) {
+                      setPYear(0);
+                      setPPlaying(true);
+                    } else setPPlaying((p) => !p);
+                  }}
+                  className="px-4 py-1.5 rounded-full text-xs font-mono border border-accent/50 bg-accent/15 text-accent hover:bg-accent/25 transition-colors w-24 text-center shrink-0"
+                >
+                  {pAtEnd ? "↻ replay" : pPlaying ? "⏸ pause" : "▶ watch it"}
+                </button>
+                <input
+                  type="range"
+                  min={0}
+                  max={Math.max(0, pYears.length - 1)}
+                  value={pYear}
+                  onChange={(e) => {
+                    setPPlaying(false);
+                    setPYear(parseInt(e.target.value, 10));
+                  }}
+                  className="year-slider flex-1"
+                />
+                <span className="font-mono text-base tabular-nums text-foreground w-14 text-right shrink-0">
+                  {pYears[pYear]}
+                </span>
+              </div>
+
               <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <Stat big={`${data.stats.ridge_spread_2025}%`} small="of common words had drifted more than 2× from their 2014 rate by 2025" />
-                <Stat big="≈0%" small="…the same figure in 2015. The distribution was flat for years" />
-                <Stat big={data.ridge.n_words.toLocaleString()} small="established English words in the chart above — none cherry-picked" />
+                <Stat big={`${data.stats.ridge_spread_2025}%`} small="of words have drifted more than 2× from their 2014 rate by 2025" />
+                <Stat big="≈0%" small="…the same figure in 2015 — the distribution was flat for years" />
+                <Stat big={data.stats.ridge_n.toLocaleString()} small="every established word is a particle above — none cherry-picked" />
                 <Stat big="2024" small="the single biggest one-year jump in the whole decade" />
               </div>
               <p className="mt-5 text-foreground/55 text-sm max-w-2xl leading-relaxed">
-                Each ridge is one year&apos;s histogram: the horizontal axis is how much a
-                word rose (right) or fell (left) versus 2014, the height is how many words
-                sit there. The distribution doesn&apos;t slide left or right — it{" "}
-                <span className="text-foreground">splays open</span>, a long tail of words
-                surging while a broad mass slides down. That widening is the whole language
-                being re-weighted, and it accelerates exactly when machine-written text
-                floods the web.
+                Each dot is one word. Left of center it got rarer than in 2014, right of
+                center more common; height is how many words pile up there. Press{" "}
+                <span className="text-accent">play</span> — for years the whole language
+                holds in one tight, bright spike, then it <span className="text-foreground">tears
+                open</span>: a long gold tail of words surging while a blue mass slides down.
+                That&apos;s the distribution itself being re-weighted, accelerating exactly
+                when machine-written text floods the web. Hover any dot to name it.
               </p>
+            </section>
+
+            {/* ---------- the same story, every year stacked ---------- */}
+            <section className="mt-20">
+              <SectionKicker n="01" t="every year at once" />
+              <h2 className="font-display text-2xl lg:text-3xl leading-tight mt-2 mb-4 max-w-3xl">
+                The same distribution, all twelve years stacked.
+              </h2>
+              <RidgePlot ridge={data.ridge} years={data.years} chatgptX={data.chatgpt_x} />
             </section>
 
             {/* ---------- what's driving the right tail ---------- */}
             <section className="mt-20">
-              <SectionKicker n="01" t="what's in the tail" />
+              <SectionKicker n="02" t="what's in the tail" />
               <h2 className="font-display text-2xl lg:text-3xl leading-tight mt-2 mb-3 max-w-3xl">
                 Pull out the words that climbed — the ordinary ones — and they read like an
                 AI thesaurus.
@@ -154,7 +280,7 @@ export default function LLMPage() {
 
             {/* ---------- the receipts: ranking board (secondary) ---------- */}
             <section className="mt-20">
-              <SectionKicker n="02" t="the receipts" />
+              <SectionKicker n="03" t="the receipts" />
               <h2 className="font-display text-2xl lg:text-3xl leading-tight mt-2 mb-3 max-w-3xl">
                 Want the actual words? Here&apos;s the ranking — all{" "}
                 {data.n_ranked.toLocaleString()}, we picked none.
