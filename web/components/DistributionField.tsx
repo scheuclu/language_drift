@@ -169,7 +169,15 @@ export function DistributionField({ data, yearIndex, onHover }: Props) {
         if (t >= 1) tActive.current = false;
       }
       ctx.setTransform(r, 0, 0, r, 0, 0);
-      ctx.fillStyle = "#06070d";
+      ctx.fillStyle = "#05060c";
+      ctx.fillRect(0, 0, w, h);
+      // deep-space nebula glow behind the distribution (cinematic, matches /space)
+      const md = Math.max(w, h);
+      const nb = ctx.createRadialGradient(w * 0.5, h * 0.52, 0, w * 0.5, h * 0.52, md * 0.6);
+      nb.addColorStop(0, "rgba(46,34,86,0.5)");
+      nb.addColorStop(0.5, "rgba(24,24,58,0.22)");
+      nb.addColorStop(1, "rgba(5,6,12,0)");
+      ctx.fillStyle = nb;
       ctx.fillRect(0, 0, w, h);
 
       // additive particle bloom — dense regions of the distribution glow
