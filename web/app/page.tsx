@@ -27,6 +27,9 @@ export default function LandingPage() {
   const [playing, setPlaying] = useState(false);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [dragged, setDragged] = useState(false);
+  const [tour, setTour] = useState(false);
+  const tourRef = useRef(tour);
+  tourRef.current = tour;
   const playRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -75,11 +78,25 @@ export default function LandingPage() {
     return c;
   }, [story, currentYear]);
 
-  // reset to the start year whenever the story changes (no autoplay — drag it)
+  // reset to the start year whenever the story changes. In tour mode, auto-play
+  // the new story; otherwise wait for a drag.
   useEffect(() => {
     setYearIndex(0);
-    setPlaying(false);
+    setPlaying(tourRef.current);
   }, [storyIdx]);
+
+  // tour driver: when a story finishes playing, pause on the finale, then glide
+  // to the next story (wrapping) — a hands-free cinematic film of all the drifts.
+  useEffect(() => {
+    if (!tour || !data) return;
+    if (!playing && yearIndex >= data.index.years.length - 1) {
+      const t = window.setTimeout(
+        () => setStoryIdx((s) => (s + 1) % STORIES.length),
+        2200,
+      );
+      return () => window.clearTimeout(t);
+    }
+  }, [tour, playing, yearIndex, data]);
 
   // play loop
   useEffect(() => {
@@ -154,21 +171,46 @@ export default function LandingPage() {
           </div>
         )}
 
-        {/* story tabs */}
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex flex-wrap justify-center gap-1.5 px-3">
-          {STORIES.map((s, i) => (
-            <button
-              key={s.id}
-              onClick={() => setStoryIdx(i)}
-              className={`px-3 py-1.5 rounded-full text-xs font-mono transition-colors border tabular-nums ${
-                i === storyIdx
-                  ? "bg-accent text-black border-accent"
-                  : "border-white/10 text-muted hover:text-foreground hover:border-white/25 bg-black/30 backdrop-blur-md"
-              }`}
-            >
-              {s.id} · {s.snapYear}
-            </button>
-          ))}
+        {/* story tabs + play-the-film toggle */}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 px-3">
+          <div className="flex flex-wrap justify-center gap-1.5">
+            {STORIES.map((s, i) => (
+              <button
+                key={s.id}
+                onClick={() => {
+                  setTour(false);
+                  setStoryIdx(i);
+                }}
+                className={`px-3 py-1.5 rounded-full text-xs font-mono transition-colors border tabular-nums ${
+                  i === storyIdx
+                    ? "bg-accent text-black border-accent"
+                    : "border-white/10 text-muted hover:text-foreground hover:border-white/25 bg-black/30 backdrop-blur-md"
+                }`}
+              >
+                {s.id} · {s.snapYear}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => {
+              if (tour) {
+                setTour(false);
+                setPlaying(false);
+              } else {
+                setTour(true);
+                setStoryIdx(0);
+                setYearIndex(0);
+                setPlaying(true);
+              }
+            }}
+            className={`px-4 py-1.5 rounded-full text-xs font-mono tracking-wide transition-colors border ${
+              tour
+                ? "bg-accent/15 border-accent/50 text-accent"
+                : "border-white/15 text-foreground/80 hover:text-foreground hover:border-white/35 bg-black/40 backdrop-blur-md"
+            }`}
+          >
+            {tour ? "⏸ touring — stop" : "▶ play the film"}
+          </button>
         </div>
 
         {/* active story header */}
@@ -267,6 +309,7 @@ export default function LandingPage() {
 
             <button
               onClick={() => {
+                setTour(false);
                 if (atEnd) setYearIndex(0);
                 setPlaying((p) => (atEnd ? true : !p));
               }}
@@ -292,6 +335,7 @@ export default function LandingPage() {
                 step={1}
                 value={yearIndex}
                 onChange={(e) => {
+                  setTour(false);
                   setPlaying(false);
                   setDragged(true);
                   setYearIndex(parseInt(e.target.value, 10));
