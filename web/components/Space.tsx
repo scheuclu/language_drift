@@ -478,29 +478,42 @@ export function Space({
 
       // supernova bursts — expanding shockwave + glow when a word snaps clusters
       if (flashes.current.length) {
-        const now = performance.now();
         ctx.globalCompositeOperation = "lighter";
         for (let fi = flashes.current.length - 1; fi >= 0; fi--) {
           const fl = flashes.current[fi];
-          const t = (now - fl.start) / 1000;
+          const t = (now - fl.start) / 1100;
           if (t >= 1) { flashes.current.splice(fi, 1); continue; }
           const x = cx + fl.x * half, y = cy + fl.y * half;
           const ease = 1 - Math.pow(1 - t, 2);
-          const R = (8 + ease * 78) / tr.k;
+          const R = (8 + ease * 92) / tr.k;
           const a = 1 - t;
+          // expanding colored glow
           const g = ctx.createRadialGradient(x, y, 0, x, y, R);
-          g.addColorStop(0, rgbCss(fl.col, 0.55 * a));
-          g.addColorStop(0.5, rgbCss(fl.col, 0.18 * a));
+          g.addColorStop(0, rgbCss(fl.col, 0.6 * a));
+          g.addColorStop(0.45, rgbCss(fl.col, 0.2 * a));
           g.addColorStop(1, rgbCss(fl.col, 0));
           ctx.fillStyle = g;
           ctx.beginPath();
           ctx.arc(x, y, R, 0, Math.PI * 2);
           ctx.fill();
-          ctx.strokeStyle = rgbCss(fl.col, 0.8 * a * a);
-          ctx.lineWidth = (2.4 * a + 0.4) / tr.k;
+          // bright shockwave ring
+          ctx.strokeStyle = rgbCss(fl.col, 0.95 * a * a);
+          ctx.lineWidth = (3.2 * a + 0.4) / tr.k;
           ctx.beginPath();
           ctx.arc(x, y, R, 0, Math.PI * 2);
           ctx.stroke();
+          // white-hot initial pop (fast)
+          if (t < 0.45) {
+            const p = 1 - t / 0.45;
+            const cr = (5 + ease * 26) / tr.k;
+            const wg = ctx.createRadialGradient(x, y, 0, x, y, cr);
+            wg.addColorStop(0, `rgba(255,250,236,${(0.85 * p).toFixed(3)})`);
+            wg.addColorStop(1, "rgba(255,250,236,0)");
+            ctx.fillStyle = wg;
+            ctx.beginPath();
+            ctx.arc(x, y, cr, 0, Math.PI * 2);
+            ctx.fill();
+          }
         }
         ctx.globalCompositeOperation = "source-over";
       }
