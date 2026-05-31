@@ -2,17 +2,10 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DATA_BASE } from "@/lib/data-source";
 import type { ParticleData } from "@/components/DistributionField";
-
-const DistributionField = dynamic(
-  () => import("@/components/DistributionField").then((m) => m.DistributionField),
-  { ssr: false },
-);
-
-type HoverInfo = { w: string; lift: number; x: number; y: number };
+import { FreqSpectrum, yearColor } from "@/components/FreqSpectrum";
 
 type Cat = "register" | "coinage" | "gambling" | "adult" | "tech" | "other";
 type Riser = {
@@ -82,7 +75,6 @@ export default function LLMPage() {
   const [pdata, setPdata] = useState<ParticleData | null>(null);
   const [pYear, setPYear] = useState(0);
   const [pPlaying, setPPlaying] = useState(false);
-  const [hover, setHover] = useState<HoverInfo | null>(null);
   const pPlayRef = useRef<number | null>(null);
   const fieldRef = useRef<HTMLDivElement>(null);
   const autoPlayed = useRef(false);
@@ -165,15 +157,14 @@ export default function LLMPage() {
     return () => io.disconnect();
   }, [pdata]);
 
-  // narration that tracks the playhead
+  // narration that tracks the playhead (honest: gradual, no ChatGPT cliff)
   const phase = (() => {
     const y = pYears[pYear];
     if (y === undefined) return "";
-    if (y <= 2019) return "For years the whole language holds in one tight spike — everything roughly where it was.";
-    if (y <= 2022) return "It starts to spread. A few words pull away from the center.";
-    if (y === 2023) return "ChatGPT ships. The spike begins to tear open.";
-    if (y === 2024) return "The biggest lurch of the decade — a gold tail of surging words, a blue mass sinking.";
-    return "The distribution has come apart: the whole language re-weighted in three years.";
+    if (y <= 2015) return `${y}: the established vocabulary sits in one tall, tight peak.`;
+    if (y <= 2019) return `${y}: the peak has eased lower and wider — a slow, even drift.`;
+    if (y <= 2023) return `${y}: still drifting at the same gentle pace. ChatGPT shipped late 2022 — the curve doesn't flinch.`;
+    return `${y}: lower and broader than 2014, but it got here gradually — no single year tore it open.`;
   })();
 
   const shown = useMemo(() => {
@@ -190,30 +181,33 @@ export default function LLMPage() {
           the shape of a language
         </div>
         <h1 className="font-display text-4xl lg:text-6xl leading-[1.02] mb-5">
-          You can watch the
+          The vocabulary drifts —
           <br />
-          distribution come apart.
+          slowly, and all decade long.
         </h1>
         <p className="text-foreground/65 text-sm lg:text-lg max-w-2xl leading-relaxed">
-          Forget individual words for a moment. Here is{" "}
-          <em>every common English word at once</em> —{" "}
-          {data ? data.ridge.n_words.toLocaleString() : "44,714"}{" "}of them — and how
-          far each drifted from its 2014 frequency, year by year. For most of the decade the
-          web&apos;s vocabulary barely moved: one tall, narrow spike, everything holding
-          its place. Then it begins to spread. After ChatGPT, it tears open.
+          A fair way to ask whether English is really changing: measure{" "}
+          <em>each year on its own terms</em>, with no privileged baseline year to drift
+          away from. Below is every established word&apos;s frequency distribution — one
+          curve per year, {data ? data.ridge.n_words.toLocaleString() : "44,714"} words,
+          2014 in blue → 2025 in gold. The tight 2014 peak doesn&apos;t lurch; it{" "}
+          <span className="text-foreground">melts</span> — a little every year, evenly.
+          There&apos;s no ChatGPT cliff in the distribution as a whole; the language churns
+          at a roughly constant rate. (Zoom into individual words further down and
+          you&apos;ll find one cluster that genuinely did jump.)
         </p>
 
         {!data && <div className="mt-16 text-muted font-mono text-sm">loading the distribution…</div>}
 
         {data && (
           <>
-            {/* ---------- THE LIVING DISTRIBUTION (particle hero) ---------- */}
+            {/* ---------- PER-YEAR FREQUENCY DISTRIBUTION (honest hero) ---------- */}
             <section className="mt-10">
-              <div ref={fieldRef} className="relative rounded-2xl overflow-hidden border border-white/[0.06]">
+              <div ref={fieldRef} className="relative rounded-2xl overflow-hidden border border-white/[0.06] bg-[#05060c] px-2 pt-2 pb-1">
                 {pdata ? (
-                  <DistributionField data={pdata} yearIndex={pYear} onHover={setHover} />
+                  <FreqSpectrum data={pdata} yearIndex={pYear} />
                 ) : (
-                  <div className="h-[60vh] min-h-[420px] grid place-items-center text-muted font-mono text-sm">
+                  <div className="h-[440px] grid place-items-center text-muted font-mono text-sm">
                     loading 44,714 words…
                   </div>
                 )}
@@ -223,31 +217,23 @@ export default function LLMPage() {
                   <p className="text-foreground/70 text-xs lg:text-sm max-w-md leading-snug min-h-[2.5em]">
                     {phase}
                   </p>
-                  <span className="font-display text-4xl lg:text-6xl leading-none tabular-nums text-foreground/90 drop-shadow">
+                  <span
+                    className="font-display text-4xl lg:text-6xl leading-none tabular-nums drop-shadow"
+                    style={{ color: yearColor(pYears.length > 1 ? pYear / (pYears.length - 1) : 0) }}
+                  >
                     {pYears[pYear]}
                   </span>
                 </div>
 
-                {/* legend */}
-                <div className="absolute bottom-12 left-5 right-5 z-10 pointer-events-none flex justify-between text-[11px] font-mono uppercase tracking-wider">
-                  <span className="text-[#6ea8ff]/80">← got rarer</span>
-                  <span className="text-[#f4b860]/80">got more common →</span>
+                {/* time legend */}
+                <div className="absolute bottom-3 right-5 z-10 pointer-events-none flex items-center gap-2 text-[10px] font-mono text-muted">
+                  <span>2014</span>
+                  <span
+                    className="inline-block w-24 h-1.5 rounded-full"
+                    style={{ background: "linear-gradient(90deg,#608ce6,#f8be60)" }}
+                  />
+                  <span>2025</span>
                 </div>
-                {hover && (
-                  <div
-                    className="absolute pointer-events-none z-10 px-2 py-1 rounded bg-black/80 border border-white/15 text-xs font-mono whitespace-nowrap -translate-x-1/2"
-                    style={{ left: hover.x, top: Math.max(8, hover.y - 30) }}
-                  >
-                    <span style={{ color: hover.lift > 0.35 ? "#f4b860" : hover.lift < -0.35 ? "#6ea8ff" : "#cfd2da" }}>
-                      {hover.w}
-                    </span>
-                    <span className="text-muted ml-2">
-                      {hover.lift >= 0
-                        ? `×${(2 ** hover.lift).toFixed(2 ** hover.lift >= 10 ? 0 : 1)}`
-                        : `${Math.round(2 ** hover.lift * 100)}% of 2014`}
-                    </span>
-                  </div>
-                )}
               </div>
 
               {/* transport */}
@@ -261,7 +247,7 @@ export default function LLMPage() {
                   }}
                   className="px-4 py-1.5 rounded-full text-xs font-mono border border-accent/50 bg-accent/15 text-accent hover:bg-accent/25 transition-colors w-24 text-center shrink-0"
                 >
-                  {pAtEnd ? "↻ replay" : pPlaying ? "⏸ pause" : "▶ watch it"}
+                  {pAtEnd ? "↻ replay" : pPlaying ? "⏸ pause" : "▶ sweep"}
                 </button>
                 <div className="relative flex-1">
                   {pYears.length > 1 && (
@@ -269,7 +255,7 @@ export default function LLMPage() {
                       className="absolute -top-4 pointer-events-none"
                       style={{ left: `${(8.5 / (pYears.length - 1)) * 100}%` }}
                     >
-                      <span className="-translate-x-1/2 inline-block text-[9px] font-mono uppercase tracking-wider text-accent/80 whitespace-nowrap">
+                      <span className="-translate-x-1/2 inline-block text-[9px] font-mono uppercase tracking-wider text-accent/70 whitespace-nowrap">
                         ChatGPT ↓
                       </span>
                     </div>
@@ -292,34 +278,25 @@ export default function LLMPage() {
               </div>
 
               <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <Stat big={`${data.stats.ridge_spread_2025}%`} small="of words have drifted more than 2× from their 2014 rate by 2025" />
-                <Stat big="≈0%" small="…the same figure in 2015 — the distribution was flat for years" />
-                <Stat big={data.stats.ridge_n.toLocaleString()} small="every established word is a particle above — none cherry-picked" />
-                <Stat big="2024" small="the single biggest one-year jump in the whole decade" />
+                <Stat big="~0.18" small="year-over-year churn (log₂ std) — about the same every year of the decade" />
+                <Stat big="2016→17" small="the biggest single-year shift — before ChatGPT (likely a corpus change, not language)" />
+                <Stat big="2022→23" small="the year ChatGPT shipped: an utterly ordinary amount of change" />
+                <Stat big={data.stats.ridge_n.toLocaleString()} small="established words, each year measured on its own terms" />
               </div>
               <p className="mt-5 text-foreground/55 text-sm max-w-2xl leading-relaxed">
-                Each dot is one word. Left of center it got rarer than in 2014, right of
-                center more common; height is how many words pile up there. Press{" "}
-                <span className="text-accent">play</span> — for years the whole language
-                holds in one tight, bright spike, then it <span className="text-foreground">tears
-                open</span>: a long gold tail of words surging while a blue mass slides down.
-                That&apos;s the distribution itself being re-weighted, accelerating exactly
-                when machine-written text floods the web. Hover any dot to name it.
+                Each curve is one year&apos;s frequency distribution, computed from{" "}
+                <em>that year alone</em> — no baseline to drift away from. In 2014 the
+                established words form a tall, tight peak; year by year it eases lower and
+                broader as they slowly cede ground to newer words. The drift is real but{" "}
+                <span className="text-foreground">gradual and continuous</span> — measured
+                fairly, no single year (ChatGPT included) tears it open. Sweep the years to
+                watch the peak melt.
               </p>
-            </section>
-
-            {/* ---------- the same story, every year stacked ---------- */}
-            <section className="mt-20">
-              <SectionKicker n="01" t="every year at once" />
-              <h2 className="font-display text-2xl lg:text-3xl leading-tight mt-2 mb-4 max-w-3xl">
-                The same distribution, all twelve years stacked.
-              </h2>
-              <RidgePlot ridge={data.ridge} years={data.years} chatgptX={data.chatgpt_x} />
             </section>
 
             {/* ---------- what's driving the right tail ---------- */}
             <section className="mt-20">
-              <SectionKicker n="02" t="what's in the tail" />
+              <SectionKicker n="01" t="but one cluster did jump" />
               <h2 className="font-display text-2xl lg:text-3xl leading-tight mt-2 mb-3 max-w-3xl">
                 Pull out the words that climbed — the ordinary ones — and they read like an
                 AI thesaurus.
@@ -342,7 +319,7 @@ export default function LLMPage() {
 
             {/* ---------- the receipts: ranking board (secondary) ---------- */}
             <section className="mt-20">
-              <SectionKicker n="03" t="the receipts" />
+              <SectionKicker n="02" t="the receipts" />
               <h2 className="font-display text-2xl lg:text-3xl leading-tight mt-2 mb-3 max-w-3xl">
                 Want the actual words? Here&apos;s the ranking — all{" "}
                 {data.n_ranked.toLocaleString()}, we picked none.
@@ -448,92 +425,6 @@ export default function LLMPage() {
   );
 }
 
-/* ===================== the ridgeline (joyplot) ===================== */
-function RidgePlot({ ridge, years, chatgptX }: { ridge: Ridge; years: number[]; chatgptX: number }) {
-  const W = 1000;
-  const H = 600;
-  const PAD = { l: 52, r: 24, t: 76, b: 40 };
-  const { bins, rows } = ridge;
-  const lo = bins[0];
-  const hi = bins[bins.length - 1];
-  const n = years.length;
-  const plotW = W - PAD.l - PAD.r;
-  const plotH = H - PAD.t - PAD.b;
-  const rowGap = plotH / (n - 1);
-  const globalMax = Math.max(...rows.flat());
-  const AMP = rowGap * 3.4; // peak height in px (older spike towers; recent rows splay low)
-
-  const xFor = (v: number) => PAD.l + ((v - lo) / (hi - lo)) * plotW;
-  const baseY = (i: number) => PAD.t + i * rowGap; // 2014 at top
-  const lerp = (t: number) => {
-    // dim violet (old) -> warm gold (recent)
-    const r = Math.round(96 + (244 - 96) * t);
-    const g = Math.round(82 + (184 - 82) * t);
-    const b = Math.round(150 + (96 - 150) * t);
-    return `rgb(${r},${g},${b})`;
-  };
-  const ridgePath = (dens: number[], i: number) => {
-    const by = baseY(i);
-    let d = `M${xFor(bins[0]).toFixed(1)},${by.toFixed(1)}`;
-    dens.forEach((v, k) => {
-      d += ` L${xFor(bins[k]).toFixed(1)},${(by - (v / globalMax) * AMP).toFixed(1)}`;
-    });
-    d += ` L${xFor(bins[bins.length - 1]).toFixed(1)},${by.toFixed(1)} Z`;
-    return d;
-  };
-
-  // ChatGPT divider sits between the 2022 and 2023 rows
-  const i2022 = years.indexOf(2022);
-  const cgY = baseY(i2022) + rowGap / 2;
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full select-none">
-      {/* x gridlines at notable multiples: 0.5x(-1), 1x(0), 2x(1), 4x(2), 8x(3) */}
-      {[-1, 0, 1, 2, 3].map((v) => (
-        <g key={v}>
-          <line x1={xFor(v)} x2={xFor(v)} y1={PAD.t - 14} y2={H - PAD.b + 6}
-            stroke={v === 0 ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.06)"}
-            strokeDasharray={v === 0 ? "" : "3 5"} />
-          <text x={xFor(v)} y={H - PAD.b + 22} textAnchor="middle" className="fill-muted" fontSize="11" fontFamily="monospace">
-            {v === 0 ? "same" : v < 0 ? `${Math.round(100 / 2 ** -v)}%` : `×${2 ** v}`}
-          </text>
-        </g>
-      ))}
-
-      {/* ridges, far (2014) first so nearer rows overlap upward */}
-      {rows.map((dens, i) => {
-        const t = i / (n - 1);
-        return (
-          <motion.path
-            key={years[i]}
-            d={ridgePath(dens, i)}
-            fill={lerp(t)}
-            fillOpacity={0.86}
-            stroke="rgba(0,0,0,0.55)"
-            strokeWidth={0.8}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: i * 0.05 }}
-          />
-        );
-      })}
-
-      {/* year labels */}
-      {years.map((yr, i) => (
-        <text key={yr} x={PAD.l - 10} y={baseY(i) + 3} textAnchor="end"
-          className={yr >= 2023 ? "fill-accent" : "fill-muted"} fontSize="11" fontFamily="monospace">
-          {yr}
-        </text>
-      ))}
-
-      {/* ChatGPT divider */}
-      <line x1={PAD.l - 4} x2={W - PAD.r} y1={cgY} y2={cgY} stroke="rgba(244,184,96,0.55)" strokeWidth={1.2} strokeDasharray="6 4" />
-      <text x={W - PAD.r} y={cgY - 6} textAnchor="end" className="fill-accent" fontSize="11" fontFamily="monospace">
-        ↑ before ChatGPT · after ↓
-      </text>
-    </svg>
-  );
-}
 
 /* ===================== composite chart ===================== */
 function CompositeChart({ data }: { data: LLMData }) {
