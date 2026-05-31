@@ -37,6 +37,7 @@ const B_LO = Math.log10(0.5);
 const B_HI = Math.log10(200);
 const B_RANGE = B_HI - B_LO;
 const N_BUCKETS = 24;
+const TRAIL_LEN = 18; // comet-trail length (frames) for moving marked words
 function brightnessOf(pm: number): number {
   if (pm <= 0) return 0;
   const b = (Math.log10(pm + 0.1) - B_LO) / B_RANGE;
@@ -85,6 +86,11 @@ export function Space({
   // brightness: per-year brightness arrays + current year's points bucketed by it
   const brightByYear = useRef<Float32Array[] | null>(null);
   const buckets = useRef<number[][] | null>(null);
+  // per-marked-word recent world positions, for comet trails
+  const trail = useRef<Map<number, number[]>>(new Map());
+  // supernova bursts when a marked word snaps to a new cluster
+  const flashes = useRef<{ x: number; y: number; start: number; col: RGB }[]>([]);
+  const prevMarked = useRef<Set<number>>(new Set());
 
   const n = data.index.n_words;
 
@@ -171,11 +177,38 @@ export function Space({
     if (!currentCoords.current) {
       currentCoords.current = target;
       tweenActive.current = false;
+      prevMarked.current = new Set(draw.current.markedIndices);
     } else {
       tweenFrom.current = new Float32Array(currentCoords.current);
       tweenTo.current = target;
       tweenStart.current = performance.now();
       tweenActive.current = true;
+      // supernova: flash marked words that jump clusters this year (but not on
+      // a story switch, when the whole marked set changes).
+      const mk = draw.current.markedIndices;
+      const newSet = new Set(mk);
+      const sameSet =
+        newSet.size === prevMarked.current.size &&
+        [...newSet].every((x) => prevMarked.current.has(x));
+      if (sameSet) {
+        const from = tweenFrom.current;
+        for (let i = 0; i < mk.length; i++) {
+          const idx = mk[i];
+          const dx = target[idx * 2] - from[idx * 2];
+          const dy = target[idx * 2 + 1] - from[idx * 2 + 1];
+          if (dx * dx + dy * dy > 0.08 * 0.08) {
+            flashes.current.push({
+              x: target[idx * 2],
+              y: target[idx * 2 + 1],
+              start: performance.now(),
+              col: draw.current.markedColors[i] ?? [1, 1, 1],
+            });
+          }
+        }
+      } else {
+        flashes.current = [];
+      }
+      prevMarked.current = newSet;
     }
     prevYi.current = yearIndex;
     regroup(yearIndex);
@@ -292,14 +325,36 @@ export function Space({
       const r = dpr.current;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = "#070707";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       const pad = 0.96;
       const half = Math.min(w, h) * 0.5 * pad;
       const cx = w / 2, cy = h / 2;
       const tr = transform.current;
+      const now = performance.now();
+      // parallax: nebula drifts a little against the stars for depth
+      const px = Math.max(-90, Math.min(90, tr.x * 0.05));
+      const py = Math.max(-90, Math.min(90, tr.y * 0.05));
+
+      // --- deep-space nebula background (screen space) ---
       ctx.setTransform(r, 0, 0, r, 0, 0);
+      ctx.fillStyle = "#04050a";
+      ctx.fillRect(0, 0, w, h);
+      const maxd = Math.max(w, h);
+      const n1x = w * 0.46 + px, n1y = h * 0.42 + py;
+      const neb1 = ctx.createRadialGradient(n1x, n1y, 0, n1x, n1y, maxd * 0.62);
+      neb1.addColorStop(0, "rgba(48,36,92,0.55)");
+      neb1.addColorStop(0.45, "rgba(26,26,64,0.28)");
+      neb1.addColorStop(1, "rgba(4,5,10,0)");
+      ctx.fillStyle = neb1;
+      ctx.fillRect(0, 0, w, h);
+      const n2x = w * 0.73 + px * 1.6, n2y = h * 0.71 + py * 1.6;
+      const neb2 = ctx.createRadialGradient(n2x, n2y, 0, n2x, n2y, maxd * 0.5);
+      neb2.addColorStop(0, "rgba(98,44,74,0.22)");
+      neb2.addColorStop(1, "rgba(4,5,10,0)");
+      ctx.fillStyle = neb2;
+      ctx.fillRect(0, 0, w, h);
+
+      // --- world space (zoom) for the points ---
       ctx.translate(tr.x, tr.y);
       ctx.scale(tr.k, tr.k);
 
@@ -314,15 +369,18 @@ export function Space({
         const baseA = dim ? 0.008 : 0.012;
         const gainA = dim ? 0.6 : 1.0;
         const GAMMA = 3.4; // steeper => dim words recede hard, frequent ones blaze
-        // glow pass: soft warm halos beneath the most frequent words
+        // additive bloom: dense / bright regions glow like a galaxy core
+        ctx.globalCompositeOperation = "lighter";
         for (let b = 0; b < N_BUCKETS; b++) {
           const bm = (b + 0.5) / N_BUCKETS;
-          if (bm < 0.72) continue;
+          if (bm < 0.5) continue;
           const list = bk[b];
           if (list.length === 0) continue;
-          const ga = (dim ? 0.045 : 0.09) * bm * bm;
-          ctx.fillStyle = `rgba(255,224,176,${ga.toFixed(3)})`;
-          const gr = (2.0 + 7 * (bm - 0.72)) * rscale;
+          // twinkle: each brightness layer shimmers slightly out of phase
+          const tw = 1 + 0.24 * Math.sin(now * 0.0016 + b * 0.6);
+          const ba = (dim ? 0.05 : 0.1) * bm * bm * tw;
+          ctx.fillStyle = `rgba(255,226,184,${ba.toFixed(3)})`;
+          const gr = (2.2 + 10 * (bm - 0.5)) * rscale;
           ctx.beginPath();
           for (let j = 0; j < list.length; j++) {
             const i = list[j];
@@ -332,6 +390,7 @@ export function Space({
           }
           ctx.fill();
         }
+        ctx.globalCompositeOperation = "source-over";
         // core pass
         for (let b = 0; b < N_BUCKETS; b++) {
           const list = bk[b];
@@ -366,6 +425,32 @@ export function Space({
         ctx.fill();
       }
 
+      // comet trails — marked words streak as they migrate across years
+      {
+        const curMarked = new Set(D.markedIndices);
+        for (const k of trail.current.keys()) if (!curMarked.has(k)) trail.current.delete(k);
+        ctx.lineCap = "round";
+        for (let i = 0; i < D.markedIndices.length; i++) {
+          const idx = D.markedIndices[i];
+          let buf = trail.current.get(idx);
+          if (!buf) { buf = []; trail.current.set(idx, buf); }
+          buf.push(cur[idx * 2], cur[idx * 2 + 1]);
+          if (buf.length > TRAIL_LEN * 2) buf.splice(0, buf.length - TRAIL_LEN * 2);
+          const pts = buf.length / 2;
+          if (pts < 3) continue;
+          const col = D.markedColors[i] ?? [1, 1, 1];
+          for (let s = 1; s < pts; s++) {
+            const f = s / pts;
+            ctx.strokeStyle = rgbCss(col, f * f * 0.6);
+            ctx.lineWidth = (0.3 + 3.4 * f) / tr.k;
+            ctx.beginPath();
+            ctx.moveTo(cx + buf[(s - 1) * 2] * half, cy + buf[(s - 1) * 2 + 1] * half);
+            ctx.lineTo(cx + buf[s * 2] * half, cy + buf[s * 2 + 1] * half);
+            ctx.stroke();
+          }
+        }
+      }
+
       // marked: halo + core. In glow mode the intensity tracks the word's
       // per-year frequency, so a cluster visibly lights up as you scrub.
       const glowB = D.markedGlow ? brightByYear.current?.[prevYi.current] : undefined;
@@ -389,6 +474,48 @@ export function Space({
         ctx.beginPath();
         ctx.arc(x, y, coreR, 0, Math.PI * 2);
         ctx.fill();
+      }
+
+      // supernova bursts — expanding shockwave + glow when a word snaps clusters
+      if (flashes.current.length) {
+        ctx.globalCompositeOperation = "lighter";
+        for (let fi = flashes.current.length - 1; fi >= 0; fi--) {
+          const fl = flashes.current[fi];
+          const t = (now - fl.start) / 1100;
+          if (t >= 1) { flashes.current.splice(fi, 1); continue; }
+          const x = cx + fl.x * half, y = cy + fl.y * half;
+          const ease = 1 - Math.pow(1 - t, 2);
+          const R = (8 + ease * 92) / tr.k;
+          const a = 1 - t;
+          // expanding colored glow
+          const g = ctx.createRadialGradient(x, y, 0, x, y, R);
+          g.addColorStop(0, rgbCss(fl.col, 0.6 * a));
+          g.addColorStop(0.45, rgbCss(fl.col, 0.2 * a));
+          g.addColorStop(1, rgbCss(fl.col, 0));
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(x, y, R, 0, Math.PI * 2);
+          ctx.fill();
+          // bright shockwave ring
+          ctx.strokeStyle = rgbCss(fl.col, 0.95 * a * a);
+          ctx.lineWidth = (3.2 * a + 0.4) / tr.k;
+          ctx.beginPath();
+          ctx.arc(x, y, R, 0, Math.PI * 2);
+          ctx.stroke();
+          // white-hot initial pop (fast)
+          if (t < 0.45) {
+            const p = 1 - t / 0.45;
+            const cr = (5 + ease * 26) / tr.k;
+            const wg = ctx.createRadialGradient(x, y, 0, x, y, cr);
+            wg.addColorStop(0, `rgba(255,250,236,${(0.85 * p).toFixed(3)})`);
+            wg.addColorStop(1, "rgba(255,250,236,0)");
+            ctx.fillStyle = wg;
+            ctx.beginPath();
+            ctx.arc(x, y, cr, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        ctx.globalCompositeOperation = "source-over";
       }
 
       // labels (story mode) — screen-constant size via /tr.k
@@ -420,6 +547,14 @@ export function Space({
         ctx.arc(x, y, 6 / tr.k, 0, Math.PI * 2);
         ctx.stroke();
       }
+
+      // --- vignette on top (screen space) for cinematic focus ---
+      ctx.setTransform(r, 0, 0, r, 0, 0);
+      const vig = ctx.createRadialGradient(cx, cy, Math.min(w, h) * 0.32, cx, cy, maxd * 0.72);
+      vig.addColorStop(0, "rgba(0,0,0,0)");
+      vig.addColorStop(1, "rgba(0,0,0,0.55)");
+      ctx.fillStyle = vig;
+      ctx.fillRect(0, 0, w, h);
 
       raf = requestAnimationFrame(frame);
     };

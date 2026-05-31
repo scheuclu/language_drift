@@ -48,6 +48,7 @@ export default function SpacePage() {
   ]);
   const [playing, setPlaying] = useState(false);
   const [hoveredChip, setHoveredChip] = useState<number | null>(null);
+  const [searchQ, setSearchQ] = useState("");
   const playRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -96,6 +97,27 @@ export default function SpacePage() {
 
   const onUnmark = (w: string) => {
     setMarked((prev) => prev.filter((x) => x !== w));
+  };
+
+  // search the space vocab to mark a word without hunting for it on the map
+  const searchHits = useMemo(() => {
+    const q = searchQ.trim().toLowerCase();
+    if (!q || !data) return [];
+    const words = data.index.words;
+    const pre: string[] = [];
+    const con: string[] = [];
+    for (let i = 0; i < words.length; i++) {
+      const w = words[i];
+      if (w === q || w.startsWith(q)) pre.push(w);
+      else if (w.includes(q)) con.push(w);
+      if (pre.length + con.length > 40) break;
+    }
+    return [...pre, ...con].slice(0, 8);
+  }, [searchQ, data]);
+
+  const addMark = (w: string) => {
+    setMarked((prev) => (prev.includes(w) ? prev : [...prev, w]));
+    setSearchQ("");
   };
 
   // load a curated story's word set + jump to the year it matters
@@ -199,9 +221,39 @@ export default function SpacePage() {
         </div>
       )}
 
-      <div className="absolute left-6 lg:left-10 top-1/2 -translate-y-1/2 pointer-events-auto max-w-[180px]">
+      <div className="absolute left-6 lg:left-10 top-1/2 -translate-y-1/2 pointer-events-auto w-[180px]">
         <div className="text-[10px] uppercase tracking-widest text-muted font-mono mb-2">
           marked
+        </div>
+
+        {/* search to mark a word without finding it on the map */}
+        <div className="relative mb-2">
+          <input
+            type="text"
+            value={searchQ}
+            onChange={(e) => setSearchQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && searchHits[0]) addMark(searchHits[0]);
+              else if (e.key === "Escape") setSearchQ("");
+            }}
+            placeholder="search a word…"
+            autoComplete="off"
+            spellCheck={false}
+            className="w-full bg-black/35 border border-white/10 focus:border-accent/60 rounded px-2 py-1.5 text-xs font-mono text-foreground outline-none placeholder:text-muted/60 transition-colors"
+          />
+          {searchHits.length > 0 && (
+            <div className="absolute left-0 right-0 top-full mt-1 z-30 backdrop-blur-md bg-black/70 border border-white/10 rounded overflow-hidden max-h-52 overflow-y-auto scrollbar-thin">
+              {searchHits.map((w) => (
+                <button
+                  key={w}
+                  onClick={() => addMark(w)}
+                  className="block w-full text-left px-2 py-1 text-xs font-mono text-foreground/80 hover:bg-white/10 hover:text-foreground transition-colors"
+                >
+                  {w}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         {markedVisible.length === 0 ? (
           <div className="text-[11px] text-muted/50 font-mono italic">
