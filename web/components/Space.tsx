@@ -292,14 +292,30 @@ export function Space({
       const r = dpr.current;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = "#070707";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       const pad = 0.96;
       const half = Math.min(w, h) * 0.5 * pad;
       const cx = w / 2, cy = h / 2;
       const tr = transform.current;
+
+      // --- deep-space nebula background (screen space) ---
       ctx.setTransform(r, 0, 0, r, 0, 0);
+      ctx.fillStyle = "#04050a";
+      ctx.fillRect(0, 0, w, h);
+      const maxd = Math.max(w, h);
+      const neb1 = ctx.createRadialGradient(w * 0.46, h * 0.42, 0, w * 0.46, h * 0.42, maxd * 0.62);
+      neb1.addColorStop(0, "rgba(48,36,92,0.55)");
+      neb1.addColorStop(0.45, "rgba(26,26,64,0.28)");
+      neb1.addColorStop(1, "rgba(4,5,10,0)");
+      ctx.fillStyle = neb1;
+      ctx.fillRect(0, 0, w, h);
+      const neb2 = ctx.createRadialGradient(w * 0.73, h * 0.71, 0, w * 0.73, h * 0.71, maxd * 0.5);
+      neb2.addColorStop(0, "rgba(98,44,74,0.22)");
+      neb2.addColorStop(1, "rgba(4,5,10,0)");
+      ctx.fillStyle = neb2;
+      ctx.fillRect(0, 0, w, h);
+
+      // --- world space (zoom) for the points ---
       ctx.translate(tr.x, tr.y);
       ctx.scale(tr.k, tr.k);
 
@@ -314,15 +330,16 @@ export function Space({
         const baseA = dim ? 0.008 : 0.012;
         const gainA = dim ? 0.6 : 1.0;
         const GAMMA = 3.4; // steeper => dim words recede hard, frequent ones blaze
-        // glow pass: soft warm halos beneath the most frequent words
+        // additive bloom: dense / bright regions glow like a galaxy core
+        ctx.globalCompositeOperation = "lighter";
         for (let b = 0; b < N_BUCKETS; b++) {
           const bm = (b + 0.5) / N_BUCKETS;
-          if (bm < 0.72) continue;
+          if (bm < 0.5) continue;
           const list = bk[b];
           if (list.length === 0) continue;
-          const ga = (dim ? 0.045 : 0.09) * bm * bm;
-          ctx.fillStyle = `rgba(255,224,176,${ga.toFixed(3)})`;
-          const gr = (2.0 + 7 * (bm - 0.72)) * rscale;
+          const ba = (dim ? 0.05 : 0.1) * bm * bm;
+          ctx.fillStyle = `rgba(255,226,184,${ba.toFixed(3)})`;
+          const gr = (2.2 + 10 * (bm - 0.5)) * rscale;
           ctx.beginPath();
           for (let j = 0; j < list.length; j++) {
             const i = list[j];
@@ -332,6 +349,7 @@ export function Space({
           }
           ctx.fill();
         }
+        ctx.globalCompositeOperation = "source-over";
         // core pass
         for (let b = 0; b < N_BUCKETS; b++) {
           const list = bk[b];
@@ -420,6 +438,14 @@ export function Space({
         ctx.arc(x, y, 6 / tr.k, 0, Math.PI * 2);
         ctx.stroke();
       }
+
+      // --- vignette on top (screen space) for cinematic focus ---
+      ctx.setTransform(r, 0, 0, r, 0, 0);
+      const vig = ctx.createRadialGradient(cx, cy, Math.min(w, h) * 0.32, cx, cy, maxd * 0.72);
+      vig.addColorStop(0, "rgba(0,0,0,0)");
+      vig.addColorStop(1, "rgba(0,0,0,0.55)");
+      ctx.fillStyle = vig;
+      ctx.fillRect(0, 0, w, h);
 
       raf = requestAnimationFrame(frame);
     };
