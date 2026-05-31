@@ -330,19 +330,25 @@ export function Space({
       const half = Math.min(w, h) * 0.5 * pad;
       const cx = w / 2, cy = h / 2;
       const tr = transform.current;
+      const now = performance.now();
+      // parallax: nebula drifts a little against the stars for depth
+      const px = Math.max(-90, Math.min(90, tr.x * 0.05));
+      const py = Math.max(-90, Math.min(90, tr.y * 0.05));
 
       // --- deep-space nebula background (screen space) ---
       ctx.setTransform(r, 0, 0, r, 0, 0);
       ctx.fillStyle = "#04050a";
       ctx.fillRect(0, 0, w, h);
       const maxd = Math.max(w, h);
-      const neb1 = ctx.createRadialGradient(w * 0.46, h * 0.42, 0, w * 0.46, h * 0.42, maxd * 0.62);
+      const n1x = w * 0.46 + px, n1y = h * 0.42 + py;
+      const neb1 = ctx.createRadialGradient(n1x, n1y, 0, n1x, n1y, maxd * 0.62);
       neb1.addColorStop(0, "rgba(48,36,92,0.55)");
       neb1.addColorStop(0.45, "rgba(26,26,64,0.28)");
       neb1.addColorStop(1, "rgba(4,5,10,0)");
       ctx.fillStyle = neb1;
       ctx.fillRect(0, 0, w, h);
-      const neb2 = ctx.createRadialGradient(w * 0.73, h * 0.71, 0, w * 0.73, h * 0.71, maxd * 0.5);
+      const n2x = w * 0.73 + px * 1.6, n2y = h * 0.71 + py * 1.6;
+      const neb2 = ctx.createRadialGradient(n2x, n2y, 0, n2x, n2y, maxd * 0.5);
       neb2.addColorStop(0, "rgba(98,44,74,0.22)");
       neb2.addColorStop(1, "rgba(4,5,10,0)");
       ctx.fillStyle = neb2;
@@ -370,7 +376,9 @@ export function Space({
           if (bm < 0.5) continue;
           const list = bk[b];
           if (list.length === 0) continue;
-          const ba = (dim ? 0.05 : 0.1) * bm * bm;
+          // twinkle: each brightness layer shimmers slightly out of phase
+          const tw = 1 + 0.24 * Math.sin(now * 0.0016 + b * 0.6);
+          const ba = (dim ? 0.05 : 0.1) * bm * bm * tw;
           ctx.fillStyle = `rgba(255,226,184,${ba.toFixed(3)})`;
           const gr = (2.2 + 10 * (bm - 0.5)) * rscale;
           ctx.beginPath();
