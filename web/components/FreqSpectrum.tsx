@@ -5,7 +5,7 @@ import type { ParticleData } from "./DistributionField";
 
 type Props = { data: ParticleData; yearIndex: number };
 
-const X0 = -1.5, X1 = 3.5, NB = 110;
+const X0 = -0.6, X1 = 3.5, NB = 110;
 const W = 1000, H = 460;
 const PAD = { l: 16, r: 16, t: 24, b: 40 };
 
@@ -49,9 +49,8 @@ export function FreqSpectrum({ data, yearIndex }: Props) {
     `${linePath(h)} L${xFor(centers[NB - 1]).toFixed(1)},${(PAD.t + plotH).toFixed(1)} L${xFor(centers[0]).toFixed(1)},${(PAD.t + plotH).toFixed(1)} Z`;
 
   const n = data.years.length;
-  const ticks = [-1, 0, 1, 2, 3]; // log10 per-million
-  const tickLabel = (v: number) =>
-    v < 0 ? `${Math.pow(10, v).toFixed(1)}` : v === 0 ? "1" : v >= 3 ? "1k" : `${Math.pow(10, v)}`;
+  const ticks = [0, 1, 2, 3]; // log10 per-million
+  const tickLabel = (v: number) => (v === 0 ? "1" : v >= 3 ? "1k" : `${Math.pow(10, v)}`);
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full select-none">

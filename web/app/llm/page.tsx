@@ -98,16 +98,34 @@ export default function LLMPage() {
         const idx = (await jr.json()) as { words: string[]; years: number[]; n: number; base_years: number[] };
         const all = new Float32Array(await br.arrayBuffer());
         const { n, years } = idx;
-        const pm: Float32Array[] = [];
-        for (let yi = 0; yi < years.length; yi++) pm.push(all.subarray(yi * n, (yi + 1) * n));
-        const bi = idx.base_years.map((y) => years.indexOf(y));
-        const base = new Float32Array(n);
+        const full: Float32Array[] = [];
+        for (let yi = 0; yi < years.length; yi++) full.push(all.subarray(yi * n, (yi + 1) * n));
+        // SYMMETRIC set: keep only words common (>=0.5 pm) in EVERY year, so the
+        // distribution isn't anchored to any single year's selection — this strips
+        // the "melt" that was an artifact of a 2014-defined set.
+        const FLOOR = 0.5;
+        const keep: number[] = [];
         for (let i = 0; i < n; i++) {
-          let s = 0;
-          for (const b of bi) s += pm[b][i];
-          base[i] = s / bi.length;
+          let ok = true;
+          for (let yi = 0; yi < years.length; yi++) if (full[yi][i] < FLOOR) { ok = false; break; }
+          if (ok) keep.push(i);
         }
-        setPdata({ words: idx.words, years, pm, base });
+        const m = keep.length;
+        const pm = years.map((_, yi) => {
+          const a = new Float32Array(m);
+          const src = full[yi];
+          for (let j = 0; j < m; j++) a[j] = src[keep[j]];
+          return a;
+        });
+        const words = keep.map((i) => idx.words[i]);
+        const bi = idx.base_years.map((y) => years.indexOf(y));
+        const base = new Float32Array(m);
+        for (let j = 0; j < m; j++) {
+          let s = 0;
+          for (const b of bi) s += pm[b][j];
+          base[j] = s / bi.length;
+        }
+        setPdata({ words, years, pm, base });
       } catch {
         /* particle field unavailable */
       }
@@ -157,14 +175,14 @@ export default function LLMPage() {
     return () => io.disconnect();
   }, [pdata]);
 
-  // narration that tracks the playhead (honest: gradual, no ChatGPT cliff)
+  // narration that tracks the playhead (honest: the curves barely move)
   const phase = (() => {
     const y = pYears[pYear];
     if (y === undefined) return "";
-    if (y <= 2015) return `${y}: the established vocabulary sits in one tall, tight peak.`;
-    if (y <= 2019) return `${y}: the peak has eased lower and wider — a slow, even drift.`;
-    if (y <= 2023) return `${y}: still drifting at the same gentle pace. ChatGPT shipped late 2022 — the curve doesn't flinch.`;
-    return `${y}: lower and broader than 2014, but it got here gradually — no single year tore it open.`;
+    if (y <= 2015) return `${y}: the baseline shape of common English.`;
+    if (y <= 2022) return `${y}: lands almost exactly on 2014 — barely a flicker.`;
+    if (y === 2023) return `${y}: ChatGPT shipped a year earlier. The curve hasn't budged.`;
+    return `${y}: a decade on, essentially the same distribution.`;
   })();
 
   const shown = useMemo(() => {
@@ -181,20 +199,20 @@ export default function LLMPage() {
           the shape of a language
         </div>
         <h1 className="font-display text-4xl lg:text-6xl leading-[1.02] mb-5">
-          The vocabulary drifts —
+          Everyone says AI rewrote English.
           <br />
-          slowly, and all decade long.
+          It barely moved.
         </h1>
         <p className="text-foreground/65 text-sm lg:text-lg max-w-2xl leading-relaxed">
-          A fair way to ask whether English is really changing: measure{" "}
-          <em>each year on its own terms</em>, with no privileged baseline year to drift
-          away from. Below is every established word&apos;s frequency distribution — one
-          curve per year, {data ? data.ridge.n_words.toLocaleString() : "44,714"} words,
-          2014 in blue → 2025 in gold. The tight 2014 peak doesn&apos;t lurch; it{" "}
-          <span className="text-foreground">melts</span> — a little every year, evenly.
-          There&apos;s no ChatGPT cliff in the distribution as a whole; the language churns
-          at a roughly constant rate. (Zoom into individual words further down and
-          you&apos;ll find one cluster that genuinely did jump.)
+          Here is the frequency distribution of every word that stayed common in{" "}
+          <em>all twelve years</em> ({pdata ? pdata.words.length.toLocaleString() : "~34,000"}{" "}
+          of them) — each year measured on its own terms, 2014 in blue → 2025 in gold.
+          Press play and watch the curves land almost exactly on top of one another.
+          Measured fairly — anchored to no single baseline year — the bulk of the language
+          is <span className="text-foreground">strikingly stable</span>. The dramatic
+          &ldquo;the distribution changed&rdquo; stories (including earlier drafts of this
+          page) were mostly artifacts of how you measure it. The one real exception is a
+          small, nameable cluster — further down.
         </p>
 
         {!data && <div className="mt-16 text-muted font-mono text-sm">loading the distribution…</div>}
@@ -278,19 +296,19 @@ export default function LLMPage() {
               </div>
 
               <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <Stat big="~0.18" small="year-over-year churn (log₂ std) — about the same every year of the decade" />
-                <Stat big="2016→17" small="the biggest single-year shift — before ChatGPT (likely a corpus change, not language)" />
-                <Stat big="2022→23" small="the year ChatGPT shipped: an utterly ordinary amount of change" />
-                <Stat big={data.stats.ridge_n.toLocaleString()} small="established words, each year measured on its own terms" />
+                <Stat big="~0.18" small="year-over-year churn (log₂ std) — about the same every year; no acceleration" />
+                <Stat big={pdata ? pdata.words.length.toLocaleString() : "~34k"} small="words common in all twelve years — the stable core, anchored to no single year" />
+                <Stat big="2022→23" small="ChatGPT's year: an utterly ordinary amount of change" />
+                <Stat big={`~${data.composite_register_n}`} small="words in the one cluster that DID jump (below) — the real exception" />
               </div>
               <p className="mt-5 text-foreground/55 text-sm max-w-2xl leading-relaxed">
-                Each curve is one year&apos;s frequency distribution, computed from{" "}
-                <em>that year alone</em> — no baseline to drift away from. In 2014 the
-                established words form a tall, tight peak; year by year it eases lower and
-                broader as they slowly cede ground to newer words. The drift is real but{" "}
-                <span className="text-foreground">gradual and continuous</span> — measured
-                fairly, no single year (ChatGPT included) tears it open. Sweep the years to
-                watch the peak melt.
+                Each curve is one year&apos;s frequency distribution over the words common in{" "}
+                <em>every</em> year — computed from that year alone, anchored to none. They
+                nearly coincide: a decade of supposed upheaval, and the shape{" "}
+                <span className="text-foreground">barely moves</span>. (Earlier drafts showed
+                a dramatic &ldquo;melt&rdquo; — that was an artifact of defining the word set
+                by 2014; remove the bias and the drama largely vanishes.) Sweep the years and
+                watch how little happens.
               </p>
             </section>
 
