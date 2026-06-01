@@ -3,15 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// NOTE: /gallery and /ternary are hidden from the nav and are candidates for
-// deletion — gallery still routes into the removed /explore view, and neither
-// earns its place anymore. /explore is also nav-hidden (deep-linked only). If
-// nobody misses them, delete the routes + components outright. See CLAUDE.md.
+// NOTE: nav-hidden routes (still resolve by direct URL, just not linked):
+//  - /llm: hidden in prod — not good enough yet; an improved version is in
+//    progress on the `feature/llm-drama` branch. Re-add when it ships.
+//  - /gallery, /ternary: candidates for deletion (gallery routes into the
+//    removed /explore view); /explore is deep-link-only. See CLAUDE.md.
 const LINKS = [
   { href: "/", label: "story" },
   { href: "/space", label: "space" },
   { href: "/arith", label: "arith" },
-  { href: "/llm", label: "llm" },
 ];
 
 export function Nav() {
