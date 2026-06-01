@@ -88,9 +88,6 @@ export function Space({
   const buckets = useRef<number[][] | null>(null);
   // per-marked-word recent world positions, for comet trails
   const trail = useRef<Map<number, number[]>>(new Map());
-  // supernova bursts when a marked word snaps to a new cluster
-  const flashes = useRef<{ x: number; y: number; start: number; col: RGB }[]>([]);
-  const prevMarked = useRef<Set<number>>(new Set());
 
   const n = data.index.n_words;
 
@@ -177,38 +174,11 @@ export function Space({
     if (!currentCoords.current) {
       currentCoords.current = target;
       tweenActive.current = false;
-      prevMarked.current = new Set(draw.current.markedIndices);
     } else {
       tweenFrom.current = new Float32Array(currentCoords.current);
       tweenTo.current = target;
       tweenStart.current = performance.now();
       tweenActive.current = true;
-      // supernova: flash marked words that jump clusters this year (but not on
-      // a story switch, when the whole marked set changes).
-      const mk = draw.current.markedIndices;
-      const newSet = new Set(mk);
-      const sameSet =
-        newSet.size === prevMarked.current.size &&
-        [...newSet].every((x) => prevMarked.current.has(x));
-      if (sameSet) {
-        const from = tweenFrom.current;
-        for (let i = 0; i < mk.length; i++) {
-          const idx = mk[i];
-          const dx = target[idx * 2] - from[idx * 2];
-          const dy = target[idx * 2 + 1] - from[idx * 2 + 1];
-          if (dx * dx + dy * dy > 0.08 * 0.08) {
-            flashes.current.push({
-              x: target[idx * 2],
-              y: target[idx * 2 + 1],
-              start: performance.now(),
-              col: draw.current.markedColors[i] ?? [1, 1, 1],
-            });
-          }
-        }
-      } else {
-        flashes.current = [];
-      }
-      prevMarked.current = newSet;
     }
     prevYi.current = yearIndex;
     regroup(yearIndex);
@@ -330,7 +300,6 @@ export function Space({
       const half = Math.min(w, h) * 0.5 * pad;
       const cx = w / 2, cy = h / 2;
       const tr = transform.current;
-      const now = performance.now();
       // parallax: nebula drifts a little against the stars for depth
       const px = Math.max(-90, Math.min(90, tr.x * 0.05));
       const py = Math.max(-90, Math.min(90, tr.y * 0.05));
@@ -454,47 +423,6 @@ export function Space({
         ctx.fill();
       }
 
-      // supernova bursts — expanding shockwave + glow when a word snaps clusters
-      if (flashes.current.length) {
-        ctx.globalCompositeOperation = "lighter";
-        for (let fi = flashes.current.length - 1; fi >= 0; fi--) {
-          const fl = flashes.current[fi];
-          const t = (now - fl.start) / 1100;
-          if (t >= 1) { flashes.current.splice(fi, 1); continue; }
-          const x = cx + fl.x * half, y = cy + fl.y * half;
-          const ease = 1 - Math.pow(1 - t, 2);
-          const R = (8 + ease * 92) / tr.k;
-          const a = 1 - t;
-          // expanding colored glow
-          const g = ctx.createRadialGradient(x, y, 0, x, y, R);
-          g.addColorStop(0, rgbCss(fl.col, 0.6 * a));
-          g.addColorStop(0.45, rgbCss(fl.col, 0.2 * a));
-          g.addColorStop(1, rgbCss(fl.col, 0));
-          ctx.fillStyle = g;
-          ctx.beginPath();
-          ctx.arc(x, y, R, 0, Math.PI * 2);
-          ctx.fill();
-          // bright shockwave ring
-          ctx.strokeStyle = rgbCss(fl.col, 0.95 * a * a);
-          ctx.lineWidth = (3.2 * a + 0.4) / tr.k;
-          ctx.beginPath();
-          ctx.arc(x, y, R, 0, Math.PI * 2);
-          ctx.stroke();
-          // white-hot initial pop (fast)
-          if (t < 0.45) {
-            const p = 1 - t / 0.45;
-            const cr = (5 + ease * 26) / tr.k;
-            const wg = ctx.createRadialGradient(x, y, 0, x, y, cr);
-            wg.addColorStop(0, `rgba(255,250,236,${(0.85 * p).toFixed(3)})`);
-            wg.addColorStop(1, "rgba(255,250,236,0)");
-            ctx.fillStyle = wg;
-            ctx.beginPath();
-            ctx.arc(x, y, cr, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
-        ctx.globalCompositeOperation = "source-over";
-      }
 
       // labels (story mode) — screen-constant size via /tr.k
       if (D.labels) {
