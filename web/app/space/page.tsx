@@ -184,7 +184,7 @@ export default function SpacePage() {
           space
         </div>
         <h1 className="font-display text-2xl lg:text-3xl leading-none">
-          {nWords.toLocaleString()} words. One UMAP. Twelve years.
+          {nWords.toLocaleString()} words. One t-SNE. Twelve years.
         </h1>
         <p className="text-foreground/55 text-xs mt-2 max-w-md leading-relaxed">
           Every word that survived the freq filter, projected from 300d to 2d

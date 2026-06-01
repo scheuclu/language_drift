@@ -425,7 +425,7 @@ export default function LandingPage() {
           Twelve per-year Word2Vec models (300d, trained on ~1B tokens of Common
           Crawl each) share one frozen <em>compass</em>, so all years live in the
           same coordinate system. Every word-year is then projected to 2D with a
-          single joint UMAP — which is why a word can sit still for years and then
+          single joint t-SNE — which is why a word can sit still for years and then
           jump to a new neighborhood the moment its meaning shifts. The map holds{" "}
           {data ? data.index.n_words.toLocaleString() : "52,894"} words; each story
           above just lights a few of them up.

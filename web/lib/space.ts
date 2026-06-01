@@ -22,9 +22,11 @@ export function loadSpace(): Promise<SpaceData | null> {
   if (cache) return cache;
   cache = (async () => {
     try {
+      // feature/space-tsne: use the t-SNE projection instead of UMAP. Same word
+      // order as space_index, so space_freq.bin (brightness) still aligns.
       const [idxRes, binRes] = await Promise.all([
-        fetch(`${DATA_BASE}/space_index.json`),
-        fetch(`${DATA_BASE}/space.bin`),
+        fetch(`${DATA_BASE}/space_tsne_index.json`),
+        fetch(`${DATA_BASE}/space_tsne.bin`),
       ]);
       if (!idxRes.ok || !binRes.ok) return null;
       const index = (await idxRes.json()) as SpaceIndex;
