@@ -369,29 +369,7 @@ export function Space({
         const baseA = dim ? 0.008 : 0.012;
         const gainA = dim ? 0.6 : 1.0;
         const GAMMA = 3.4; // steeper => dim words recede hard, frequent ones blaze
-        // additive bloom: dense / bright regions glow like a galaxy core
-        ctx.globalCompositeOperation = "lighter";
-        for (let b = 0; b < N_BUCKETS; b++) {
-          const bm = (b + 0.5) / N_BUCKETS;
-          if (bm < 0.5) continue;
-          const list = bk[b];
-          if (list.length === 0) continue;
-          // twinkle: each brightness layer shimmers slightly out of phase
-          const tw = 1 + 0.24 * Math.sin(now * 0.0016 + b * 0.6);
-          const ba = (dim ? 0.05 : 0.1) * bm * bm * tw;
-          ctx.fillStyle = `rgba(255,226,184,${ba.toFixed(3)})`;
-          const gr = (2.2 + 10 * (bm - 0.5)) * rscale;
-          ctx.beginPath();
-          for (let j = 0; j < list.length; j++) {
-            const i = list[j];
-            const x = sx(i), y = sy(i);
-            ctx.moveTo(x + gr, y);
-            ctx.arc(x, y, gr, 0, Math.PI * 2);
-          }
-          ctx.fill();
-        }
-        ctx.globalCompositeOperation = "source-over";
-        // core pass
+        // core pass — crisp frequency-coloured star dots (no extra bloom ring)
         for (let b = 0; b < N_BUCKETS; b++) {
           const list = bk[b];
           if (list.length === 0) continue;
