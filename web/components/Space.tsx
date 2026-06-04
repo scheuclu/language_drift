@@ -318,7 +318,7 @@ export function Space({
     const by0 = cy + miny * half, by1 = cy + maxy * half;
     const bw = Math.max(bx1 - bx0, 1);
     const bh = Math.max(by1 - by0, 1);
-    const fitPad = 0.52; // marked words fill ~half the viewport
+    const fitPad = 0.86; // frame fills most of the viewport (wide, galaxy in view)
     let k = Math.min((w * fitPad) / bw, (h * fitPad) / bh);
     k = Math.max(0.4, Math.min(50, k));
     const bcx = (bx0 + bx1) / 2, bcy = (by0 + by1) / 2;
