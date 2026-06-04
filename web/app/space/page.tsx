@@ -24,6 +24,17 @@ const MARK_PALETTE = [
 const AXIS_A_HEX = "#5dd5e8"; // cyan
 const AXIS_B_HEX = "#ff5da2"; // pink
 
+// quick-pick colour axes — evocative pairs found by scanning the whole vocab for
+// map separation (antonyms collapse together; topical contrasts spread apart).
+const AXIS_PRESETS: { a: string; b: string }[] = [
+  { a: "home", b: "work" },
+  { a: "physical", b: "digital" },
+  { a: "food", b: "war" },
+  { a: "body", b: "mind" },
+  { a: "health", b: "money" },
+  { a: "science", b: "music" },
+];
+
 function hexToRgb(hex: string): RGB {
   const n = parseInt(hex.slice(1), 16);
   return [((n >> 16) & 0xff) / 255, ((n >> 8) & 0xff) / 255, (n & 0xff) / 255];
@@ -479,6 +490,28 @@ export default function SpacePage() {
               <p className="text-[10px] text-muted/60 font-mono mt-1 leading-snug">
                 every star tinted by how close it sits to each word
               </p>
+              <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-white/10">
+                {AXIS_PRESETS.map((p) => {
+                  const active = axisAWord === p.a && axisBWord === p.b;
+                  return (
+                    <button
+                      key={`${p.a}-${p.b}`}
+                      onClick={() => {
+                        setAxisAWord(p.a);
+                        setAxisBWord(p.b);
+                        setAxisOn(true);
+                      }}
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-mono border transition-colors ${
+                        active
+                          ? "border-accent/60 text-foreground bg-white/[0.06]"
+                          : "border-white/10 text-muted hover:text-foreground hover:border-white/30"
+                      }`}
+                    >
+                      {p.a}·{p.b}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 
