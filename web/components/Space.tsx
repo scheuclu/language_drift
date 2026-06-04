@@ -300,27 +300,10 @@ export function Space({
       const half = Math.min(w, h) * 0.5 * pad;
       const cx = w / 2, cy = h / 2;
       const tr = transform.current;
-      // parallax: nebula drifts a little against the stars for depth
-      const px = Math.max(-90, Math.min(90, tr.x * 0.05));
-      const py = Math.max(-90, Math.min(90, tr.y * 0.05));
 
-      // --- deep-space nebula background (screen space) ---
+      // --- pure black background (screen space) ---
       ctx.setTransform(r, 0, 0, r, 0, 0);
-      ctx.fillStyle = "#04050a";
-      ctx.fillRect(0, 0, w, h);
-      const maxd = Math.max(w, h);
-      const n1x = w * 0.46 + px, n1y = h * 0.42 + py;
-      const neb1 = ctx.createRadialGradient(n1x, n1y, 0, n1x, n1y, maxd * 0.62);
-      neb1.addColorStop(0, "rgba(48,36,92,0.55)");
-      neb1.addColorStop(0.45, "rgba(26,26,64,0.28)");
-      neb1.addColorStop(1, "rgba(4,5,10,0)");
-      ctx.fillStyle = neb1;
-      ctx.fillRect(0, 0, w, h);
-      const n2x = w * 0.73 + px * 1.6, n2y = h * 0.71 + py * 1.6;
-      const neb2 = ctx.createRadialGradient(n2x, n2y, 0, n2x, n2y, maxd * 0.5);
-      neb2.addColorStop(0, "rgba(98,44,74,0.22)");
-      neb2.addColorStop(1, "rgba(4,5,10,0)");
-      ctx.fillStyle = neb2;
+      ctx.fillStyle = "#000000";
       ctx.fillRect(0, 0, w, h);
 
       // --- world space (zoom) for the points ---
@@ -453,14 +436,6 @@ export function Space({
         ctx.arc(x, y, 6 / tr.k, 0, Math.PI * 2);
         ctx.stroke();
       }
-
-      // --- vignette on top (screen space) for cinematic focus ---
-      ctx.setTransform(r, 0, 0, r, 0, 0);
-      const vig = ctx.createRadialGradient(cx, cy, Math.min(w, h) * 0.32, cx, cy, maxd * 0.72);
-      vig.addColorStop(0, "rgba(0,0,0,0)");
-      vig.addColorStop(1, "rgba(0,0,0,0.55)");
-      ctx.fillStyle = vig;
-      ctx.fillRect(0, 0, w, h);
 
       raf = requestAnimationFrame(frame);
     };
