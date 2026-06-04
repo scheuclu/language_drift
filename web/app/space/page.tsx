@@ -264,6 +264,12 @@ export default function SpacePage() {
     const s = STORIES.find((x) => x.id === storyId);
     if (!s || !data) return;
     setMarked(s.words.map((w) => w.w));
+    // load the story's colour axis so the map tints along its semantic axis
+    if (s.axis) {
+      setAxisAWord(s.axis[0]);
+      setAxisBWord(s.axis[1]);
+      setAxisOn(true);
+    }
     const yi = data.index.years.indexOf(s.snapYear);
     if (yi >= 0) {
       setPlaying(false);

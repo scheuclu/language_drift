@@ -22,6 +22,9 @@ export type Story = {
   chapters: StoryChapter[];
   mode?: StoryMode; // default "migration"
   accent?: string; // glow only: cluster color
+  // two anchor words for the /space colour axis (A -> white -> B): the map is
+  // tinted by each star's closeness, so the hero crosses between coloured zones.
+  axis?: [string, string];
 };
 
 export const STORIES: Story[] = [
@@ -32,6 +35,7 @@ export const STORIES: Story[] = [
     blurb:
       "“Crypto” spent the early 2010s as a branch of mathematics. Then Bitcoin pulled it clean out of the security lab.",
     snapYear: 2017,
+    axis: ["encryption", "currency"],
     words: [
       { w: "crypto", role: "hero" },
       { w: "encryption", role: "away" },
@@ -64,6 +68,7 @@ export const STORIES: Story[] = [
     blurb:
       "For most of the decade you distanced yourself from an idea. In one spring it became a number of feet.",
     snapYear: 2020,
+    axis: ["idea", "pandemic"],
     words: [
       { w: "distancing", role: "hero" },
       { w: "idea", role: "away" },
@@ -96,6 +101,7 @@ export const STORIES: Story[] = [
     blurb:
       "“AI” was an academic field for a decade. Then a chatbot shipped and the word changed employers.",
     snapYear: 2023,
+    axis: ["intelligence", "gpt"],
     words: [
       { w: "ai", role: "hero" },
       { w: "model", role: "context" },
@@ -128,6 +134,7 @@ export const STORIES: Story[] = [
     blurb:
       "An ordinary, sunny word — a drink, a halo of light. A virus took its name and never gave it back.",
     snapYear: 2020,
+    axis: ["beer", "flu"],
     words: [
       { w: "corona", role: "hero" },
       { w: "coronavirus", role: "toward" },
@@ -163,6 +170,7 @@ export const STORIES: Story[] = [
     blurb:
       "One tight knot of the map — casino, slots, betting, jackpot — that the SEO spam machine set on fire. Drag forward and watch it ignite.",
     snapYear: 2021,
+    axis: ["recipe", "casino"],
     words: [
       { w: "casino", role: "hero" },
       { w: "slots", role: "hero" },
@@ -206,6 +214,7 @@ export const STORIES: Story[] = [
     blurb:
       "delve, seamless, intricate, robust — ordinary words language models reach for. Flat for eight years, then the whole neighborhood ignites at once.",
     snapYear: 2023,
+    axis: ["plain", "elaborate"],
     words: [
       { w: "delve", role: "hero" },
       { w: "seamless", role: "hero" },
@@ -249,6 +258,7 @@ export const STORIES: Story[] = [
     blurb:
       "bitcoin, crypto, wallet, token, defi — a niche technical pocket that two manias turned into a permanent bright patch.",
     snapYear: 2021,
+    axis: ["bank", "crypto"],
     words: [
       { w: "bitcoin", role: "hero" },
       { w: "crypto", role: "hero" },
