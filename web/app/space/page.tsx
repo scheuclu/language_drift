@@ -279,7 +279,7 @@ export default function SpacePage() {
     if (s.axis) {
       setAxisAWord(s.axis[0]);
       setAxisBWord(s.axis[1]);
-      setAxisOn(true);
+      setColorMode("axis");
     }
     const yi = data.index.years.indexOf(s.snapYear);
     if (yi >= 0) {
@@ -499,7 +499,7 @@ export default function SpacePage() {
                       onClick={() => {
                         setAxisAWord(p.a);
                         setAxisBWord(p.b);
-                        setAxisOn(true);
+                        setColorMode("axis");
                       }}
                       className={`px-2 py-0.5 rounded-full text-[10px] font-mono border transition-colors ${
                         active
