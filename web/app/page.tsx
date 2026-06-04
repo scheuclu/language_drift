@@ -206,6 +206,8 @@ export default function LandingPage() {
             fitIndices={fitIndices}
             fitMinSpan={2.2}
             markedGlow={story.mode === "glow"}
+            cinematic
+            progress={years.length > 1 ? yearIndex / (years.length - 1) : 0}
             freqByYear={data.freqByYear}
           />
         ) : (
