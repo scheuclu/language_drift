@@ -20,9 +20,91 @@ const MARK_PALETTE = [
   "#ff5d5d",
 ];
 
+// colour-axis endpoint colours (pole A -> pole B)
+const AXIS_A_HEX = "#5dd5e8"; // cyan
+const AXIS_B_HEX = "#ff5da2"; // pink
+
 function hexToRgb(hex: string): RGB {
   const n = parseInt(hex.slice(1), 16);
   return [((n >> 16) & 0xff) / 255, ((n >> 8) & 0xff) / 255, (n & 0xff) / 255];
+}
+
+// one editable anchor word for the colour axis, with type-ahead over the vocab
+function AxisPole({
+  hex,
+  word,
+  words,
+  onPick,
+}: {
+  hex: string;
+  word: string;
+  words: string[];
+  onPick: (w: string) => void;
+}) {
+  const [q, setQ] = useState(word);
+  const [open, setOpen] = useState(false);
+  useEffect(() => setQ(word), [word]);
+  const hits = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    if (!s) return [];
+    const pre: string[] = [];
+    const con: string[] = [];
+    for (let i = 0; i < words.length; i++) {
+      const w = words[i];
+      if (w === s || w.startsWith(s)) pre.push(w);
+      else if (w.includes(s)) con.push(w);
+      if (pre.length + con.length > 30) break;
+    }
+    return [...pre, ...con].slice(0, 6);
+  }, [q, words]);
+  const commit = (w: string) => {
+    onPick(w);
+    setQ(w);
+    setOpen(false);
+  };
+  return (
+    <div className="relative flex items-center gap-2">
+      <span
+        className="inline-block w-3 h-3 rounded-full flex-shrink-0"
+        style={{ background: hex, boxShadow: `0 0 8px ${hex}` }}
+      />
+      <input
+        value={q}
+        onChange={(e) => {
+          setQ(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 120)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && hits[0]) commit(hits[0]);
+          else if (e.key === "Escape") {
+            setQ(word);
+            setOpen(false);
+          }
+        }}
+        spellCheck={false}
+        autoComplete="off"
+        className="flex-1 bg-black/35 border border-white/10 focus:border-accent/60 rounded px-2 py-1 text-xs font-mono text-foreground outline-none transition-colors"
+      />
+      {open && hits.length > 0 && (
+        <div className="absolute left-5 top-full mt-1 z-40 w-36 backdrop-blur-md bg-black/80 border border-white/10 rounded overflow-hidden max-h-44 overflow-y-auto scrollbar-thin">
+          {hits.map((w) => (
+            <button
+              key={w}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                commit(w);
+              }}
+              className="block w-full text-left px-2 py-1 text-xs font-mono text-foreground/80 hover:bg-white/10 hover:text-foreground"
+            >
+              {w}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 const Space = dynamic(
@@ -49,6 +131,9 @@ export default function SpacePage() {
   const [playing, setPlaying] = useState(false);
   const [hoveredChip, setHoveredChip] = useState<number | null>(null);
   const [searchQ, setSearchQ] = useState("");
+  const [axisOn, setAxisOn] = useState(true);
+  const [axisAWord, setAxisAWord] = useState("science");
+  const [axisBWord, setAxisBWord] = useState("music");
   const playRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -88,6 +173,31 @@ export default function SpacePage() {
     }
     return { markedIndices: ids, markedColors: cols, markedHex: hex, markedVisible: vis };
   }, [marked, wordToIdx]);
+
+  // colour axis: map the two anchor words to indices + endpoint colours
+  const axisColor = useMemo(() => {
+    if (!axisOn || !data) return null;
+    const a = wordToIdx.get(axisAWord);
+    const b = wordToIdx.get(axisBWord);
+    if (a === undefined || b === undefined) return null;
+    return {
+      aIdx: a,
+      bIdx: b,
+      colA: hexToRgb(AXIS_A_HEX),
+      colB: hexToRgb(AXIS_B_HEX),
+    };
+  }, [axisOn, data, wordToIdx, axisAWord, axisBWord]);
+
+  // axis on: keep the user's pinned words AND add the two labelled poles on top
+  const spaceMarkedIndices = axisColor
+    ? [...markedIndices, axisColor.aIdx, axisColor.bIdx]
+    : markedIndices;
+  const spaceMarkedColors = axisColor
+    ? [...markedColors, axisColor.colA, axisColor.colB]
+    : markedColors;
+  const spaceLabels = axisColor
+    ? [...markedIndices.map(() => null), axisAWord, axisBWord]
+    : undefined;
 
   const onToggleMark = (idx: number) => {
     if (!data) return;
@@ -166,11 +276,13 @@ export default function SpacePage() {
             yearIndex={yearIndex}
             hoveredIdx={hoveredIdx}
             onHover={setHoveredIdx}
-            markedIndices={markedIndices}
-            markedColors={markedColors}
+            markedIndices={spaceMarkedIndices}
+            markedColors={spaceMarkedColors}
             highlightedMarkedIdx={hoveredChip}
             onToggleMark={onToggleMark}
             freqByYear={data.freqByYear}
+            labels={spaceLabels}
+            axisColor={axisColor}
           />
         ) : (
           <div className="absolute inset-0 grid place-items-center text-muted text-sm font-mono">
@@ -285,6 +397,51 @@ export default function SpacePage() {
           </div>
         )}
       </div>
+
+      {/* colour-axis control — pick two words; every star is tinted by its
+          relative closeness to each on the map */}
+      {data && (
+        <div className="absolute bottom-6 left-6 z-20 w-[248px] backdrop-blur-md bg-black/45 border border-white/10 rounded-xl p-3 pointer-events-auto">
+          <div className="flex items-center justify-between mb-2.5">
+            <div className="text-[10px] uppercase tracking-widest text-muted font-mono">
+              colour axis
+            </div>
+            <button
+              onClick={() => setAxisOn((v) => !v)}
+              className={`text-[10px] font-mono uppercase tracking-wider transition-colors ${
+                axisOn ? "text-accent" : "text-muted hover:text-foreground"
+              }`}
+            >
+              {axisOn ? "on" : "off"}
+            </button>
+          </div>
+          {axisOn && (
+            <div className="flex flex-col gap-2">
+              <AxisPole
+                hex={AXIS_A_HEX}
+                word={axisAWord}
+                words={data.index.words}
+                onPick={setAxisAWord}
+              />
+              <div
+                className="h-2 rounded-full mx-1"
+                style={{
+                  background: `linear-gradient(90deg, ${AXIS_A_HEX}, #ffffff, ${AXIS_B_HEX})`,
+                }}
+              />
+              <AxisPole
+                hex={AXIS_B_HEX}
+                word={axisBWord}
+                words={data.index.words}
+                onPick={setAxisBWord}
+              />
+              <p className="text-[10px] text-muted/60 font-mono mt-1 leading-snug">
+                every star tinted by how close it sits to each word
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {hoveredWord && (
         <div className="absolute bottom-28 left-1/2 -translate-x-1/2 pointer-events-none backdrop-blur-md bg-black/55 border border-white/10 rounded-lg px-4 py-2 text-sm font-mono">

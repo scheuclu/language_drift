@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as d3 from "d3";
 import type { SpaceData } from "@/lib/space";
 
@@ -25,6 +25,9 @@ type Props = {
   fitIndices?: number[] | null; // frame these words (across all years) when set
   fitMinSpan?: number; // glow: minimum framed extent (UMAP units) so tight clusters keep context
   markedGlow?: boolean; // glow: modulate marked words by their per-year frequency
+  // semantic colour axis: tint every star along a 2-colour scale by how close it
+  // sits (in the 2D map) to anchor word A vs B. Recomputed live as coords tween.
+  axisColor?: { aIdx: number; bIdx: number; colA: RGB; colB: RGB } | null;
 };
 
 const TWEEN_MS = 700;
@@ -48,6 +51,32 @@ function rgbCss([r, g, b]: RGB, a: number) {
   return `rgba(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)},${a})`;
 }
 
+// colour-axis: a quantised LUT between two colours, interpolated in HCL so the
+// midtones stay saturated (no muddy grey) on the black background.
+const AXIS_K = 41; // number of colour steps (odd => an exact white centre)
+const AXIS_SAT_GAMMA = 1.8; // >1 keeps the middle white; colour concentrates at poles
+// Diverging scale: pole A -> white -> pole B (mix each pole toward white).
+function buildAxisLUT(colA: RGB, colB: RGB): Uint8ClampedArray {
+  const out = new Uint8ClampedArray(AXIS_K * 3);
+  const A = [colA[0] * 255, colA[1] * 255, colA[2] * 255];
+  const B = [colB[0] * 255, colB[1] * 255, colB[2] * 255];
+  for (let i = 0; i < AXIS_K; i++) {
+    const u = i / (AXIS_K - 1); // 0 = pole A, 0.5 = white, 1 = pole B
+    if (u <= 0.5) {
+      const f = u / 0.5; // 0 at A -> 1 at white
+      out[i * 3] = A[0] + (255 - A[0]) * f;
+      out[i * 3 + 1] = A[1] + (255 - A[1]) * f;
+      out[i * 3 + 2] = A[2] + (255 - A[2]) * f;
+    } else {
+      const f = (u - 0.5) / 0.5; // 0 at white -> 1 at B
+      out[i * 3] = 255 + (B[0] - 255) * f;
+      out[i * 3 + 1] = 255 + (B[1] - 255) * f;
+      out[i * 3 + 2] = 255 + (B[2] - 255) * f;
+    }
+  }
+  return out;
+}
+
 export function Space({
   data,
   yearIndex,
@@ -64,6 +93,7 @@ export function Space({
   fitIndices,
   fitMinSpan,
   markedGlow = false,
+  axisColor = null,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -88,8 +118,20 @@ export function Space({
   const buckets = useRef<number[][] | null>(null);
   // per-marked-word recent world positions, for comet trails
   const trail = useRef<Map<number, number[]>>(new Map());
+  // colour-axis: scratch sublists (one per colour step), reused each frame
+  const axisScratch = useRef<number[][] | null>(null);
 
   const n = data.index.n_words;
+
+  // rebuild the colour LUT only when the endpoint colours change
+  const axisKey = axisColor
+    ? `${axisColor.colA.join()}|${axisColor.colB.join()}`
+    : "";
+  const axisLut = useMemo(
+    () => (axisColor ? buildAxisLUT(axisColor.colA, axisColor.colB) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [axisKey],
+  );
 
   const regroup = (yi: number) => {
     const bb = brightByYear.current;
@@ -108,6 +150,10 @@ export function Space({
   };
 
   // keep latest draw inputs in refs so the rAF loop (mounted once) sees them
+  const axis =
+    axisColor && axisLut
+      ? { aIdx: axisColor.aIdx, bIdx: axisColor.bIdx, lut: axisLut }
+      : null;
   const draw = useRef({
     markedIndices,
     markedColors,
@@ -116,6 +162,7 @@ export function Space({
     labels,
     dimBackground,
     markedGlow,
+    axis,
   });
   draw.current = {
     markedIndices,
@@ -125,6 +172,7 @@ export function Space({
     labels,
     dimBackground,
     markedGlow,
+    axis,
   };
 
   // Initial / resize setup + (interactive only) d3-zoom binding.
@@ -316,7 +364,59 @@ export function Space({
       // background cloud — brightness by per-year frequency when available.
       const rscale = 1 / Math.max(0.8, tr.k * 0.6);
       const bk = buckets.current;
-      if (bk) {
+      if (D.axis && bk) {
+        // --- semantic colour axis ---
+        const dim = D.dimBackground;
+        const baseA = dim ? 0.008 : 0.012;
+        const gainA = dim ? 0.6 : 1.0;
+        const GAMMA = 3.4;
+        const { aIdx, bIdx, lut } = D.axis;
+        const ax = cur[aIdx * 2], ay = cur[aIdx * 2 + 1];
+        const bx = cur[bIdx * 2], by = cur[bIdx * 2 + 1];
+        if (!axisScratch.current)
+          axisScratch.current = Array.from({ length: AXIS_K }, () => []);
+        const sub = axisScratch.current;
+        // group by brightness bucket (alpha + size) then colour step so we batch
+        // the fills. Colour = white unless the star sits close to a pole: s is the
+        // signed closeness (-1 at A, +1 at B, 0 equidistant) and the gamma curve
+        // keeps |s| small => white, only the near-pole tail picking up real hue.
+        for (let b = 0; b < N_BUCKETS; b++) {
+          const list = bk[b];
+          if (list.length === 0) continue;
+          const bm = (b + 0.5) / N_BUCKETS;
+          let a = baseA + Math.pow(bm, GAMMA) * gainA;
+          if (a > 1) a = 1;
+          const rr = (0.62 + 1.0 * bm) * rscale;
+          for (let c = 0; c < AXIS_K; c++) sub[c].length = 0;
+          for (let j = 0; j < list.length; j++) {
+            const i = list[j];
+            const dxa = cur[i * 2] - ax, dya = cur[i * 2 + 1] - ay;
+            const dxb = cur[i * 2] - bx, dyb = cur[i * 2 + 1] - by;
+            const da = Math.sqrt(dxa * dxa + dya * dya);
+            const db = Math.sqrt(dxb * dxb + dyb * dyb);
+            const t = da + db > 1e-6 ? da / (da + db) : 0.5;
+            const s = 2 * t - 1; // -1 at A, +1 at B, 0 equidistant
+            const sat = Math.pow(s < 0 ? -s : s, AXIS_SAT_GAMMA);
+            const u = 0.5 + 0.5 * (s < 0 ? -sat : sat); // white-centred 0..1
+            const cbin = (u * (AXIS_K - 1) + 0.5) | 0;
+            sub[cbin].push(i);
+          }
+          const af = a.toFixed(3);
+          for (let c = 0; c < AXIS_K; c++) {
+            const sl = sub[c];
+            if (sl.length === 0) continue;
+            ctx.fillStyle = `rgba(${lut[c * 3]},${lut[c * 3 + 1]},${lut[c * 3 + 2]},${af})`;
+            ctx.beginPath();
+            for (let j = 0; j < sl.length; j++) {
+              const i = sl[j];
+              const x = sx(i), y = sy(i);
+              ctx.moveTo(x + rr, y);
+              ctx.arc(x, y, rr, 0, Math.PI * 2);
+            }
+            ctx.fill();
+          }
+        }
+      } else if (bk) {
         const dim = D.dimBackground;
         const baseA = dim ? 0.008 : 0.012;
         const gainA = dim ? 0.6 : 1.0;
