@@ -28,6 +28,10 @@ type Props = {
   // semantic colour axis: tint every star along a 2-colour scale by how close it
   // sits (in the 2D map) to anchor word A vs B. Recomputed live as coords tween.
   axisColor?: { aIdx: number; bIdx: number; colA: RGB; colB: RGB } | null;
+  // movement heat: per-word normalised (0..1) year-over-year displacement for the
+  // current year; stars tinted white (still) -> hot (moved most). Mutually
+  // exclusive with axisColor.
+  movement?: Float32Array | null;
 };
 
 const TWEEN_MS = 700;
@@ -77,6 +81,28 @@ function buildAxisLUT(colA: RGB, colB: RGB): Uint8ClampedArray {
   return out;
 }
 
+// movement: a sequential heat scale (white = still -> gold -> hot red = moved a
+// lot this year). Fixed, so build it once.
+const MOV_K = 33;
+const MOVEMENT_LUT: Uint8ClampedArray = (() => {
+  const stops: number[][] = [
+    [255, 255, 255],
+    [255, 210, 90],
+    [255, 77, 58],
+  ];
+  const out = new Uint8ClampedArray(MOV_K * 3);
+  for (let i = 0; i < MOV_K; i++) {
+    const u = (i / (MOV_K - 1)) * (stops.length - 1);
+    const seg = Math.min(stops.length - 2, Math.floor(u));
+    const f = u - seg;
+    const c0 = stops[seg], c1 = stops[seg + 1];
+    out[i * 3] = c0[0] + (c1[0] - c0[0]) * f;
+    out[i * 3 + 1] = c0[1] + (c1[1] - c0[1]) * f;
+    out[i * 3 + 2] = c0[2] + (c1[2] - c0[2]) * f;
+  }
+  return out;
+})();
+
 export function Space({
   data,
   yearIndex,
@@ -94,6 +120,7 @@ export function Space({
   fitMinSpan,
   markedGlow = false,
   axisColor = null,
+  movement = null,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -163,6 +190,7 @@ export function Space({
     dimBackground,
     markedGlow,
     axis,
+    movement,
   });
   draw.current = {
     markedIndices,
@@ -173,6 +201,7 @@ export function Space({
     dimBackground,
     markedGlow,
     axis,
+    movement,
   };
 
   // Initial / resize setup + (interactive only) d3-zoom binding.
@@ -364,7 +393,49 @@ export function Space({
       // background cloud — brightness by per-year frequency when available.
       const rscale = 1 / Math.max(0.8, tr.k * 0.6);
       const bk = buckets.current;
-      if (D.axis && bk) {
+      if (D.movement && bk) {
+        // --- year-over-year movement heat (white = still -> hot = moved most) ---
+        const dim = D.dimBackground;
+        const baseA = dim ? 0.008 : 0.012;
+        const gainA = dim ? 0.6 : 1.0;
+        const GAMMA = 3.4;
+        const mov = D.movement;
+        if (!axisScratch.current)
+          axisScratch.current = Array.from({ length: AXIS_K }, () => []);
+        const sub = axisScratch.current;
+        for (let b = 0; b < N_BUCKETS; b++) {
+          const list = bk[b];
+          if (list.length === 0) continue;
+          const bm = (b + 0.5) / N_BUCKETS;
+          let a = baseA + Math.pow(bm, GAMMA) * gainA;
+          if (a > 1) a = 1;
+          const rr = (0.62 + 1.0 * bm) * rscale;
+          for (let c = 0; c < MOV_K; c++) sub[c].length = 0;
+          for (let j = 0; j < list.length; j++) {
+            const i = list[j];
+            const u = mov[i]; // already log-scaled + clamped to 0..1 in the page
+            let cbin = (u * (MOV_K - 1) + 0.5) | 0;
+            if (cbin >= MOV_K) cbin = MOV_K - 1;
+            sub[cbin].push(i);
+          }
+          // size + opacity stay frequency-driven (same as off/axis); movement
+          // only drives the colour.
+          const af = a.toFixed(3);
+          for (let c = 0; c < MOV_K; c++) {
+            const sl = sub[c];
+            if (sl.length === 0) continue;
+            ctx.fillStyle = `rgba(${MOVEMENT_LUT[c * 3]},${MOVEMENT_LUT[c * 3 + 1]},${MOVEMENT_LUT[c * 3 + 2]},${af})`;
+            ctx.beginPath();
+            for (let j = 0; j < sl.length; j++) {
+              const i = sl[j];
+              const x = sx(i), y = sy(i);
+              ctx.moveTo(x + rr, y);
+              ctx.arc(x, y, rr, 0, Math.PI * 2);
+            }
+            ctx.fill();
+          }
+        }
+      } else if (D.axis && bk) {
         // --- semantic colour axis ---
         const dim = D.dimBackground;
         const baseA = dim ? 0.008 : 0.012;

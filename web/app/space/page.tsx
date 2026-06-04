@@ -131,7 +131,7 @@ export default function SpacePage() {
   const [playing, setPlaying] = useState(false);
   const [hoveredChip, setHoveredChip] = useState<number | null>(null);
   const [searchQ, setSearchQ] = useState("");
-  const [axisOn, setAxisOn] = useState(true);
+  const [colorMode, setColorMode] = useState<"off" | "axis" | "movement">("off");
   const [axisAWord, setAxisAWord] = useState("science");
   const [axisBWord, setAxisBWord] = useState("music");
   const playRef = useRef<number | null>(null);
@@ -176,7 +176,7 @@ export default function SpacePage() {
 
   // colour axis: map the two anchor words to indices + endpoint colours
   const axisColor = useMemo(() => {
-    if (!axisOn || !data) return null;
+    if (colorMode !== "axis" || !data) return null;
     const a = wordToIdx.get(axisAWord);
     const b = wordToIdx.get(axisBWord);
     if (a === undefined || b === undefined) return null;
@@ -186,7 +186,36 @@ export default function SpacePage() {
       colA: hexToRgb(AXIS_A_HEX),
       colB: hexToRgb(AXIS_B_HEX),
     };
-  }, [axisOn, data, wordToIdx, axisAWord, axisBWord]);
+  }, [colorMode, data, wordToIdx, axisAWord, axisBWord]);
+
+  // movement heat: per-word normalised year-over-year displacement for this year
+  const movement = useMemo(() => {
+    if (colorMode !== "movement" || !data) return null;
+    const yi = yearIndex;
+    const N = data.index.n_words;
+    const out = new Float32Array(N);
+    if (yi <= 0) return out; // first year has no "previous" to compare against
+    const cur = data.coords[yi];
+    const prev = data.coords[yi - 1];
+    for (let i = 0; i < N; i++) {
+      const dx = cur[i * 2] - prev[i * 2];
+      const dy = cur[i * 2 + 1] - prev[i * 2 + 1];
+      out[i] = Math.sqrt(dx * dx + dy * dy);
+    }
+    // log-scale between a low and high percentile so mid-range movers pick up
+    // colour too, not just the top tail (movement is long-tailed)
+    const sorted = Float32Array.from(out).sort();
+    const eps = 1e-6;
+    const dlo = sorted[Math.floor(0.4 * (N - 1))] + eps;
+    const dhi = sorted[Math.floor(0.97 * (N - 1))] + eps;
+    const lo = Math.log(dlo);
+    const denom = Math.log(dhi) - lo > 1e-6 ? Math.log(dhi) - lo : 1;
+    for (let i = 0; i < N; i++) {
+      const u = (Math.log(out[i] + eps) - lo) / denom;
+      out[i] = u < 0 ? 0 : u > 1 ? 1 : u;
+    }
+    return out;
+  }, [colorMode, data, yearIndex]);
 
   // axis on: keep the user's pinned words AND add the two labelled poles on top
   const spaceMarkedIndices = axisColor
@@ -283,6 +312,7 @@ export default function SpacePage() {
             freqByYear={data.freqByYear}
             labels={spaceLabels}
             axisColor={axisColor}
+            movement={movement}
           />
         ) : (
           <div className="absolute inset-0 grid place-items-center text-muted text-sm font-mono">
@@ -398,25 +428,30 @@ export default function SpacePage() {
         )}
       </div>
 
-      {/* colour-axis control — pick two words; every star is tinted by its
-          relative closeness to each on the map */}
+      {/* colour control — off / semantic axis / yearly movement */}
       {data && (
         <div className="absolute bottom-6 left-6 z-20 w-[248px] backdrop-blur-md bg-black/45 border border-white/10 rounded-xl p-3 pointer-events-auto">
-          <div className="flex items-center justify-between mb-2.5">
-            <div className="text-[10px] uppercase tracking-widest text-muted font-mono">
-              colour axis
-            </div>
-            <button
-              onClick={() => setAxisOn((v) => !v)}
-              className={`text-[10px] font-mono uppercase tracking-wider transition-colors ${
-                axisOn ? "text-accent" : "text-muted hover:text-foreground"
-              }`}
-            >
-              {axisOn ? "on" : "off"}
-            </button>
+          <div className="text-[10px] uppercase tracking-widest text-muted font-mono mb-2">
+            colour by
           </div>
-          {axisOn && (
-            <div className="flex flex-col gap-2">
+          <div className="flex gap-1">
+            {(["off", "axis", "movement"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setColorMode(m)}
+                className={`flex-1 px-2 py-1 rounded text-[10px] font-mono uppercase tracking-wider border transition-colors ${
+                  colorMode === m
+                    ? "border-accent/60 text-foreground bg-white/[0.06]"
+                    : "border-white/10 text-muted hover:text-foreground hover:border-white/30"
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+
+          {colorMode === "axis" && (
+            <div className="flex flex-col gap-2 mt-3">
               <AxisPole
                 hex={AXIS_A_HEX}
                 word={axisAWord}
@@ -437,6 +472,26 @@ export default function SpacePage() {
               />
               <p className="text-[10px] text-muted/60 font-mono mt-1 leading-snug">
                 every star tinted by how close it sits to each word
+              </p>
+            </div>
+          )}
+
+          {colorMode === "movement" && (
+            <div className="flex flex-col gap-2 mt-3">
+              <div
+                className="h-2 rounded-full mx-1"
+                style={{
+                  background: "linear-gradient(90deg, #ffffff, #ffd25a, #ff4d3a)",
+                }}
+              />
+              <div className="flex justify-between text-[10px] text-muted/70 font-mono px-1">
+                <span>still</span>
+                <span>moved most</span>
+              </div>
+              <p className="text-[10px] text-muted/60 font-mono mt-1 leading-snug">
+                {yearIndex === 0
+                  ? "scrub the year forward to see what moved"
+                  : `each star tinted by how far it shifted from ${years[yearIndex - 1]} to ${currentYear}`}
               </p>
             </div>
           )}
