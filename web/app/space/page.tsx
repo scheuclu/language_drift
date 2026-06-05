@@ -316,20 +316,32 @@ export default function SpacePage() {
             movement={movement}
           />
         ) : (
-          <div className="absolute inset-0 grid place-items-center text-muted text-sm font-mono">
-            {error ?? "loading projection…"}
+          <div className="absolute inset-0 grid place-items-center">
+            <div className="flex flex-col items-center gap-4">
+              <div className="flex gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-accent animate-pulse" style={{ animationDelay: "0ms" }} />
+                <span className="w-2 h-2 rounded-full bg-accent-2 animate-pulse" style={{ animationDelay: "200ms" }} />
+                <span className="w-2 h-2 rounded-full bg-accent-3 animate-pulse" style={{ animationDelay: "400ms" }} />
+              </div>
+              <span className="text-muted font-mono text-[11px] uppercase tracking-[0.22em]">
+                {error ?? "charting the galaxy…"}
+              </span>
+            </div>
           </div>
         )}
       </div>
 
       <header className="absolute top-14 sm:top-16 left-5 sm:left-6 lg:left-10 max-w-[60vw] md:max-w-none pointer-events-none">
-        <div className="text-[10px] uppercase tracking-[0.18em] text-muted font-mono mb-1">
-          space
+        <div className="text-[10px] uppercase tracking-[0.22em] text-accent font-mono mb-1.5">
+          the space
         </div>
         <h1 className="font-display text-lg sm:text-2xl lg:text-3xl leading-tight sm:leading-none">
-          <span className="md:hidden">{nWords.toLocaleString()} words · 12 years</span>
+          <span className="md:hidden">
+            <span className="text-gold-violet">{nWords.toLocaleString()}</span> words · 12 years
+          </span>
           <span className="hidden md:inline">
-            {nWords.toLocaleString()} words. One UMAP. Twelve years.
+            <span className="text-gold-violet">{nWords.toLocaleString()}</span> words. One
+            UMAP. Twelve years.
           </span>
         </h1>
         <p className="hidden md:block text-foreground/55 text-xs mt-2 max-w-md leading-relaxed">

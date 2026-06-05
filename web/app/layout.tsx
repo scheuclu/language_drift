@@ -53,6 +53,9 @@ export default function RootLayout({
                 suppressHydrationWarning
             >
                 <Analytics />
+                {/* filmic atmosphere over the whole site (non-interactive) */}
+                <div className="fx-vignette" aria-hidden />
+                <div className="fx-grain" aria-hidden />
                 <Nav />
                 {children}
             </body>
