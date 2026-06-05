@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { Nav } from "@/components/Nav";
 import { Analytics } from "@vercel/analytics/next";
@@ -27,6 +27,13 @@ export const metadata: Metadata = {
         "Per-year Word2Vec embeddings trained on Common Crawl. Type a word and see how its neighbors shift over twelve years.",
 };
 
+export const viewport: Viewport = {
+    themeColor: "#07080c",
+    colorScheme: "dark",
+    // draw under the notch / home indicator; pages opt in via .safe-pb where needed
+    viewportFit: "cover",
+};
+
 export default function RootLayout({
     children,
 }: Readonly<{
@@ -42,7 +49,7 @@ export default function RootLayout({
           inject attributes like cz-shortcut-listen / contenteditable onto <html>/<body>
           before React hydrates, causing dev-only mismatch warnings. */}
             <body
-                className="min-h-full flex flex-col bg-background text-foreground"
+                className="min-h-dvh flex flex-col bg-background text-foreground"
                 suppressHydrationWarning
             >
                 <Analytics />

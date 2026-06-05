@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { loadManifest } from "@/lib/data";
 import { loadSpace, type SpaceData } from "@/lib/space";
@@ -134,6 +134,7 @@ export default function SpacePage() {
   const [colorMode, setColorMode] = useState<"off" | "axis" | "movement">("off");
   const [axisAWord, setAxisAWord] = useState("science");
   const [axisBWord, setAxisBWord] = useState("music");
+  const [sheetOpen, setSheetOpen] = useState(false); // mobile control sheet
   const playRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -297,7 +298,7 @@ export default function SpacePage() {
   const nWords = data?.index.n_words ?? 0;
 
   return (
-    <main className="h-screen w-screen overflow-hidden relative bg-[#070707]">
+    <main className="h-dvh w-full overflow-hidden relative bg-[#070707]">
       <div className="absolute inset-0">
         {data && manifest ? (
           <Space
@@ -321,23 +322,26 @@ export default function SpacePage() {
         )}
       </div>
 
-      <header className="absolute top-16 left-6 lg:left-10 pointer-events-none">
+      <header className="absolute top-14 sm:top-16 left-5 sm:left-6 lg:left-10 max-w-[60vw] md:max-w-none pointer-events-none">
         <div className="text-[10px] uppercase tracking-[0.18em] text-muted font-mono mb-1">
           space
         </div>
-        <h1 className="font-display text-2xl lg:text-3xl leading-none">
-          {nWords.toLocaleString()} words. One UMAP. Twelve years.
+        <h1 className="font-display text-lg sm:text-2xl lg:text-3xl leading-tight sm:leading-none">
+          <span className="md:hidden">{nWords.toLocaleString()} words · 12 years</span>
+          <span className="hidden md:inline">
+            {nWords.toLocaleString()} words. One UMAP. Twelve years.
+          </span>
         </h1>
-        <p className="text-foreground/55 text-xs mt-2 max-w-md leading-relaxed">
+        <p className="hidden md:block text-foreground/55 text-xs mt-2 max-w-md leading-relaxed">
           Every word that survived the freq filter, projected from 300d to 2d
           jointly across all years. Drag to pan, scroll to zoom, click any
           point to pin. Scrub the year slider to watch the cloud breathe.
         </p>
       </header>
 
-      {/* floating story bubbles — click to load that curated word set */}
+      {/* floating story bubbles — desktop only; click to load a curated word set */}
       {data && (
-        <div className="absolute top-16 right-6 lg:right-10 z-20 flex flex-col items-end gap-2">
+        <div className="hidden md:flex absolute top-16 right-6 lg:right-10 z-20 flex-col items-end gap-2">
           <div className="text-[10px] uppercase tracking-[0.2em] text-muted font-mono">
             load a story
           </div>
@@ -363,138 +367,63 @@ export default function SpacePage() {
         </div>
       )}
 
-      <div className="absolute left-6 lg:left-10 top-1/2 -translate-y-1/2 pointer-events-auto w-[180px]">
+      {/* mobile: single "tune" button opens the control sheet */}
+      {data && (
+        <button
+          onClick={() => setSheetOpen(true)}
+          className="md:hidden absolute top-14 right-5 z-20 inline-flex items-center gap-2 px-3 py-2 rounded-full backdrop-blur-md bg-black/55 border border-white/15 text-[11px] font-mono uppercase tracking-wider text-foreground/85 active:bg-black/75"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path d="M4 7h10M18 7h2M4 17h2M10 17h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <circle cx="16" cy="7" r="2.4" stroke="currentColor" strokeWidth="2" />
+            <circle cx="8" cy="17" r="2.4" stroke="currentColor" strokeWidth="2" />
+          </svg>
+          tune
+          {markedVisible.length > 0 && (
+            <span className="text-accent tabular-nums">{markedVisible.length}</span>
+          )}
+        </button>
+      )}
+
+      <div className="hidden md:block absolute left-6 lg:left-10 top-1/2 -translate-y-1/2 pointer-events-auto w-[180px]">
         <div className="text-[10px] uppercase tracking-widest text-muted font-mono mb-2">
           marked
         </div>
-
-        {/* search to mark a word without finding it on the map */}
-        <div className="relative mb-2">
-          <input
-            type="text"
+        <div className="mb-2">
+          <SearchBox
             value={searchQ}
-            onChange={(e) => setSearchQ(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && searchHits[0]) addMark(searchHits[0]);
-              else if (e.key === "Escape") setSearchQ("");
-            }}
-            placeholder="search a word…"
-            autoComplete="off"
-            spellCheck={false}
-            className="w-full bg-black/35 border border-white/10 focus:border-accent/60 rounded px-2 py-1.5 text-xs font-mono text-foreground outline-none placeholder:text-muted/60 transition-colors"
+            onChange={setSearchQ}
+            hits={searchHits}
+            onAdd={addMark}
           />
-          {searchHits.length > 0 && (
-            <div className="absolute left-0 right-0 top-full mt-1 z-30 backdrop-blur-md bg-black/70 border border-white/10 rounded overflow-hidden max-h-52 overflow-y-auto scrollbar-thin">
-              {searchHits.map((w) => (
-                <button
-                  key={w}
-                  onClick={() => addMark(w)}
-                  className="block w-full text-left px-2 py-1 text-xs font-mono text-foreground/80 hover:bg-white/10 hover:text-foreground transition-colors"
-                >
-                  {w}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
-        {markedVisible.length === 0 ? (
-          <div className="text-[11px] text-muted/50 font-mono italic">
-            click any point to pin
-          </div>
-        ) : (
-          <div className="space-y-1 max-h-[58vh] overflow-y-auto scrollbar-thin pr-1">
-            {markedVisible.map((w, i) => (
-              <div
-                key={w}
-                onMouseEnter={() => setHoveredChip(i)}
-                onMouseLeave={() => setHoveredChip(null)}
-                className="group flex items-center gap-2 backdrop-blur-md bg-black/35 hover:bg-black/55 border border-white/10 rounded px-2 py-1 text-xs font-mono transition-colors"
-              >
-                <span
-                  className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-[0_0_8px_currentColor]"
-                  style={{ background: markedHex[i], color: markedHex[i] }}
-                />
-                <span className="flex-1 text-foreground truncate">{w}</span>
-                <button
-                  onClick={() => onUnmark(w)}
-                  className="text-muted hover:text-foreground transition-colors leading-none w-3.5 h-3.5 grid place-items-center opacity-50 group-hover:opacity-100"
-                  aria-label={`remove ${w}`}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+        <MarkedList
+          words={markedVisible}
+          hex={markedHex}
+          onUnmark={onUnmark}
+          onHoverChip={setHoveredChip}
+          className="max-h-[58vh] overflow-y-auto scrollbar-thin pr-1"
+        />
       </div>
 
-      {/* colour control — off / semantic axis / yearly movement */}
+      {/* colour control — off / semantic axis / yearly movement (desktop) */}
       {data && (
-        <div className="absolute bottom-6 left-6 z-20 w-[248px] backdrop-blur-md bg-black/45 border border-white/10 rounded-xl p-3 pointer-events-auto">
+        <div className="hidden md:block absolute bottom-6 left-6 z-20 w-[248px] backdrop-blur-md bg-black/45 border border-white/10 rounded-xl p-3 pointer-events-auto">
           <div className="text-[10px] uppercase tracking-widest text-muted font-mono mb-2">
             colour by
           </div>
-          <div className="flex gap-1">
-            {(["off", "axis", "movement"] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => setColorMode(m)}
-                className={`flex-1 px-2 py-1 rounded text-[10px] font-mono uppercase tracking-wider border transition-colors ${
-                  colorMode === m
-                    ? "border-accent/60 text-foreground bg-white/[0.06]"
-                    : "border-white/10 text-muted hover:text-foreground hover:border-white/30"
-                }`}
-              >
-                {m}
-              </button>
-            ))}
-          </div>
-
-          {colorMode === "axis" && (
-            <div className="flex flex-col gap-2 mt-3">
-              <AxisPole
-                hex={AXIS_A_HEX}
-                word={axisAWord}
-                words={data.index.words}
-                onPick={setAxisAWord}
-              />
-              <div
-                className="h-2 rounded-full mx-1"
-                style={{
-                  background: `linear-gradient(90deg, ${AXIS_A_HEX}, #ffffff, ${AXIS_B_HEX})`,
-                }}
-              />
-              <AxisPole
-                hex={AXIS_B_HEX}
-                word={axisBWord}
-                words={data.index.words}
-                onPick={setAxisBWord}
-              />
-              <p className="text-[10px] text-muted/60 font-mono mt-1 leading-snug">
-                every star tinted by how close it sits to each word
-              </p>
-            </div>
-          )}
-
-          {colorMode === "movement" && (
-            <div className="flex flex-col gap-2 mt-3">
-              <div
-                className="h-2 rounded-full mx-1"
-                style={{
-                  background: "linear-gradient(90deg, #ffffff, #ffd25a, #ff4d3a)",
-                }}
-              />
-              <div className="flex justify-between text-[10px] text-muted/70 font-mono px-1">
-                <span>still</span>
-                <span>moved most</span>
-              </div>
-              <p className="text-[10px] text-muted/60 font-mono mt-1 leading-snug">
-                {yearIndex === 0
-                  ? "scrub the year forward to see what moved"
-                  : `each star tinted by how far it shifted from ${years[yearIndex - 1]} to ${currentYear}`}
-              </p>
-            </div>
-          )}
+          <ColourControls
+            colorMode={colorMode}
+            setColorMode={setColorMode}
+            words={data.index.words}
+            axisAWord={axisAWord}
+            setAxisAWord={setAxisAWord}
+            axisBWord={axisBWord}
+            setAxisBWord={setAxisBWord}
+            yearIndex={yearIndex}
+            years={years}
+            currentYear={currentYear}
+          />
         </div>
       )}
 
@@ -508,10 +437,10 @@ export default function SpacePage() {
       )}
 
       {data && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[min(80vw,720px)] backdrop-blur-md bg-black/45 border border-white/10 rounded-xl px-4 py-3 flex items-center gap-3">
+        <div className="absolute bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-20 w-[min(92vw,720px)] backdrop-blur-md bg-black/45 border border-white/10 rounded-xl px-3 sm:px-4 py-3 flex items-center gap-2.5 sm:gap-3">
           <button
             onClick={() => setPlaying((p) => !p)}
-            className="font-mono text-xs uppercase tracking-wider text-foreground/80 hover:text-accent transition-colors w-10 text-left"
+            className="font-mono text-xs uppercase tracking-wider text-foreground/80 hover:text-accent transition-colors w-10 text-left shrink-0"
           >
             {playing ? "pause" : "play"}
           </button>
@@ -525,13 +454,280 @@ export default function SpacePage() {
               setPlaying(false);
               setYearIndex(parseInt(e.target.value, 10));
             }}
-            className="flex-1 accent-accent"
+            className="flex-1 year-slider"
           />
-          <span className="font-mono text-base tabular-nums text-foreground w-14 text-right">
+          <span className="font-mono text-base tabular-nums text-foreground w-14 text-right shrink-0">
             {currentYear}
           </span>
         </div>
       )}
+
+      {/* mobile control sheet — all the desktop side panels in one swipe-up */}
+      <AnimatePresence>
+        {sheetOpen && data && (
+          <>
+            <motion.div
+              className="md:hidden fixed inset-0 z-30 bg-black/50"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSheetOpen(false)}
+            />
+            <motion.div
+              className="md:hidden fixed inset-x-0 bottom-0 z-40 max-h-[82dvh] overflow-y-auto overscroll-contain rounded-t-2xl border-t border-white/12 bg-[#0b0c12]/95 backdrop-blur-xl px-4 pt-2.5 safe-pb"
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 32, stiffness: 320 }}
+            >
+              <div className="sticky top-0 -mx-4 px-4 pt-1 pb-2 bg-[#0b0c12]/95 backdrop-blur-xl">
+                <div className="mx-auto mb-2 h-1 w-9 rounded-full bg-white/25" />
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-muted font-mono">
+                    controls
+                  </span>
+                  <button
+                    onClick={() => setSheetOpen(false)}
+                    className="text-xs font-mono uppercase tracking-wider text-foreground/70 active:text-foreground px-2 py-1 -mr-2"
+                  >
+                    done
+                  </button>
+                </div>
+              </div>
+
+              <SheetLabel>mark a word</SheetLabel>
+              <SearchBox
+                value={searchQ}
+                onChange={setSearchQ}
+                hits={searchHits}
+                onAdd={addMark}
+              />
+
+              <SheetLabel>load a story</SheetLabel>
+              <div className="-mx-4 px-4 flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                {STORIES.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => {
+                      pickStory(s.id);
+                      setSheetOpen(false);
+                    }}
+                    title={s.title}
+                    className="shrink-0 px-3 py-2 rounded-full text-xs font-mono bg-white/[0.05] border border-white/12 text-foreground/80 active:bg-white/15 transition-colors"
+                  >
+                    {s.id}
+                  </button>
+                ))}
+              </div>
+
+              <SheetLabel>colour by</SheetLabel>
+              <ColourControls
+                colorMode={colorMode}
+                setColorMode={setColorMode}
+                words={data.index.words}
+                axisAWord={axisAWord}
+                setAxisAWord={setAxisAWord}
+                axisBWord={axisBWord}
+                setAxisBWord={setAxisBWord}
+                yearIndex={yearIndex}
+                years={years}
+                currentYear={currentYear}
+              />
+
+              <SheetLabel>marked · {markedVisible.length}</SheetLabel>
+              <div className="pb-2">
+                <MarkedList
+                  words={markedVisible}
+                  hex={markedHex}
+                  onUnmark={onUnmark}
+                />
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </main>
+  );
+}
+
+/** Small uppercase section label, used inside the mobile control sheet. */
+function SheetLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="text-[10px] uppercase tracking-[0.2em] text-muted font-mono mt-4 mb-2">
+      {children}
+    </div>
+  );
+}
+
+/** Type-ahead search that pins a word. Shared by the desktop rail + mobile sheet. */
+function SearchBox({
+  value,
+  onChange,
+  hits,
+  onAdd,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  hits: string[];
+  onAdd: (w: string) => void;
+}) {
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && hits[0]) onAdd(hits[0]);
+          else if (e.key === "Escape") onChange("");
+        }}
+        placeholder="search a word…"
+        autoComplete="off"
+        spellCheck={false}
+        className="w-full bg-black/35 border border-white/10 focus:border-accent/60 rounded px-2 py-2 text-xs font-mono text-foreground outline-none placeholder:text-muted/60 transition-colors"
+      />
+      {hits.length > 0 && (
+        <div className="absolute left-0 right-0 top-full mt-1 z-30 backdrop-blur-md bg-black/80 border border-white/10 rounded overflow-hidden max-h-52 overflow-y-auto scrollbar-thin">
+          {hits.map((w) => (
+            <button
+              key={w}
+              onClick={() => onAdd(w)}
+              className="block w-full text-left px-2 py-2 text-xs font-mono text-foreground/80 hover:bg-white/10 hover:text-foreground transition-colors"
+            >
+              {w}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The list of pinned words with colour swatch + remove. */
+function MarkedList({
+  words,
+  hex,
+  onUnmark,
+  onHoverChip,
+  className,
+}: {
+  words: string[];
+  hex: string[];
+  onUnmark: (w: string) => void;
+  onHoverChip?: (i: number | null) => void;
+  className?: string;
+}) {
+  if (words.length === 0) {
+    return (
+      <div className="text-[11px] text-muted/50 font-mono italic">
+        tap any point to pin
+      </div>
+    );
+  }
+  return (
+    <div className={`space-y-1 ${className ?? ""}`}>
+      {words.map((w, i) => (
+        <div
+          key={w}
+          onMouseEnter={onHoverChip ? () => onHoverChip(i) : undefined}
+          onMouseLeave={onHoverChip ? () => onHoverChip(null) : undefined}
+          className="group flex items-center gap-2 backdrop-blur-md bg-black/35 hover:bg-black/55 border border-white/10 rounded px-2 py-1.5 text-xs font-mono transition-colors"
+        >
+          <span
+            className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-[0_0_8px_currentColor]"
+            style={{ background: hex[i], color: hex[i] }}
+          />
+          <span className="flex-1 text-foreground truncate">{w}</span>
+          <button
+            onClick={() => onUnmark(w)}
+            className="text-muted hover:text-foreground transition-colors leading-none w-6 h-6 -my-1 grid place-items-center text-sm opacity-60 group-hover:opacity-100"
+            aria-label={`remove ${w}`}
+          >
+            ×
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Colour-mode tabs + axis/movement sub-controls. Shared by desktop + sheet. */
+function ColourControls({
+  colorMode,
+  setColorMode,
+  words,
+  axisAWord,
+  setAxisAWord,
+  axisBWord,
+  setAxisBWord,
+  yearIndex,
+  years,
+  currentYear,
+}: {
+  colorMode: "off" | "axis" | "movement";
+  setColorMode: (m: "off" | "axis" | "movement") => void;
+  words: string[];
+  axisAWord: string;
+  setAxisAWord: (w: string) => void;
+  axisBWord: string;
+  setAxisBWord: (w: string) => void;
+  yearIndex: number;
+  years: number[];
+  currentYear: number;
+}) {
+  return (
+    <>
+      <div className="flex gap-1">
+        {(["off", "axis", "movement"] as const).map((m) => (
+          <button
+            key={m}
+            onClick={() => setColorMode(m)}
+            className={`flex-1 px-2 py-1.5 rounded text-[10px] font-mono uppercase tracking-wider border transition-colors ${
+              colorMode === m
+                ? "border-accent/60 text-foreground bg-white/[0.06]"
+                : "border-white/10 text-muted hover:text-foreground hover:border-white/30"
+            }`}
+          >
+            {m}
+          </button>
+        ))}
+      </div>
+
+      {colorMode === "axis" && (
+        <div className="flex flex-col gap-2 mt-3">
+          <AxisPole hex={AXIS_A_HEX} word={axisAWord} words={words} onPick={setAxisAWord} />
+          <div
+            className="h-2 rounded-full mx-1"
+            style={{
+              background: `linear-gradient(90deg, ${AXIS_A_HEX}, #ffffff, ${AXIS_B_HEX})`,
+            }}
+          />
+          <AxisPole hex={AXIS_B_HEX} word={axisBWord} words={words} onPick={setAxisBWord} />
+          <p className="text-[10px] text-muted/60 font-mono mt-1 leading-snug">
+            every star tinted by how close it sits to each word
+          </p>
+        </div>
+      )}
+
+      {colorMode === "movement" && (
+        <div className="flex flex-col gap-2 mt-3">
+          <div
+            className="h-2 rounded-full mx-1"
+            style={{
+              background: "linear-gradient(90deg, #ffffff, #ffd25a, #ff4d3a)",
+            }}
+          />
+          <div className="flex justify-between text-[10px] text-muted/70 font-mono px-1">
+            <span>still</span>
+            <span>moved most</span>
+          </div>
+          <p className="text-[10px] text-muted/60 font-mono mt-1 leading-snug">
+            {yearIndex === 0
+              ? "scrub the year forward to see what moved"
+              : `each star tinted by how far it shifted from ${years[yearIndex - 1]} to ${currentYear}`}
+          </p>
+        </div>
+      )}
+    </>
   );
 }

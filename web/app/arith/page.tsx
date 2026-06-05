@@ -45,15 +45,15 @@ export default function ArithPage() {
   }
 
   return (
-    <main className="min-h-screen w-screen bg-[#070707] pt-20 pb-16 px-6 lg:px-10">
+    <main className="min-h-dvh w-full bg-[#070707] pt-20 pb-16 px-5 sm:px-6 lg:px-10">
       <div className="max-w-4xl mx-auto">
         <div className="text-[10px] uppercase tracking-[0.18em] text-muted font-mono mb-1">
           arithmetic
         </div>
-        <h1 className="font-display text-2xl lg:text-3xl leading-none mb-3">
+        <h1 className="font-display text-2xl sm:text-3xl leading-tight sm:leading-none mb-3">
           Vector arithmetic over aligned embeddings.
         </h1>
-        <p className="text-foreground/55 text-sm max-w-2xl leading-relaxed mb-10">
+        <p className="text-foreground/55 text-sm max-w-2xl leading-relaxed mb-8 sm:mb-10">
           The {ARITH_YEAR} aligned embeddings form a vector space where geometry
           encodes meaning. Sum and subtract word vectors, find the nearest real
           words to the result. <span className="text-foreground/80">king − man + woman ≈ queen.</span>{" "}
@@ -103,15 +103,15 @@ export default function ArithPage() {
               {results.map((r, i) => (
                 <li
                   key={r.word}
-                  className="flex items-baseline gap-4 font-mono group"
+                  className="flex items-baseline gap-3 sm:gap-4 font-mono group"
                 >
-                  <span className="text-muted/40 text-xs tabular-nums w-6 text-right">
+                  <span className="text-muted/40 text-xs tabular-nums w-6 text-right shrink-0">
                     {i + 1}
                   </span>
                   <button
                     type="button"
                     onClick={() => addAsTerm(r.word)}
-                    className="text-foreground text-lg hover:text-accent transition-colors"
+                    className="text-foreground text-lg hover:text-accent active:text-accent transition-colors -mx-1 px-1 py-0.5 rounded"
                     title="add to terms"
                   >
                     {r.word}
@@ -269,7 +269,7 @@ function WordInput({
             setOpen(false);
           }
         }}
-        className={`bg-white/[0.04] border rounded-md px-3 py-2 text-base outline-none transition-colors w-[140px] ${
+        className={`bg-white/[0.04] border rounded-md px-3 py-2 text-base outline-none transition-colors w-[128px] sm:w-[140px] ${
           valid
             ? "border-white/15 focus:border-accent text-foreground"
             : "border-[#ff6b88]/50 focus:border-[#ff6b88] text-[#ff6b88]"

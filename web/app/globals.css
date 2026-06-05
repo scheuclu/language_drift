@@ -26,6 +26,11 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
   font-feature-settings: "ss01", "cv11";
+  /* no rubber-band white flash; no zoom-on-rotate; clean taps on mobile */
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -41,7 +46,9 @@ body {
       transparent 50%
     ),
     var(--background);
-  min-height: 100vh;
+  /* dvh tracks the *visible* viewport, so full-screen sections and their
+     bottom controls stay reachable even as mobile browser chrome shows/hides */
+  min-height: 100dvh;
 }
 
 ::selection {
@@ -127,4 +134,51 @@ body {
   height: 6px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.14);
+}
+
+/* touch devices: fatten the track + thumb so the year scrubber is easy to grab
+   with a thumb, and give the range a comfortable hit area */
+@media (pointer: coarse) {
+  .year-slider {
+    height: 10px;
+    padding: 10px 0;
+    background-clip: content-box;
+  }
+  .year-slider::-webkit-slider-thumb {
+    width: 26px;
+    height: 26px;
+  }
+  .year-slider::-moz-range-thumb {
+    width: 26px;
+    height: 26px;
+  }
+}
+
+/* iOS auto-zooms when focusing an input under 16px; keep the visual size small
+   but lift the effective font on touch so focus never triggers a zoom jump */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+/* let the map own touch gestures (pan/pinch) instead of the page scrolling */
+.touch-canvas {
+  touch-action: none;
+}
+
+/* hide scrollbars on horizontal control strips while keeping them swipeable */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* bottom sheet: respect the iOS home-indicator safe area */
+.safe-pb {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
 }

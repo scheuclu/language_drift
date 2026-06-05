@@ -674,7 +674,7 @@ export function Space({
   return (
     <div
       ref={overlayRef}
-      className={`absolute inset-0 ${interactive ? "cursor-grab active:cursor-grabbing" : ""}`}
+      className={`absolute inset-0 ${interactive ? "cursor-grab active:cursor-grabbing touch-none" : ""}`}
       onMouseMove={(e) => onHover(pick(e.clientX, e.clientY))}
       onMouseLeave={() => onHover(null)}
       onClick={(e) => {

@@ -113,14 +113,14 @@ export default function LandingPage() {
   return (
     <main className="flex-1">
       {/* hero — cinematic staggered reveal */}
-      <section className="relative min-h-[62vh] flex flex-col items-center justify-center px-6 pt-28 pb-12 text-center overflow-hidden">
+      <section className="relative min-h-[58svh] flex flex-col items-center justify-center px-6 pt-24 sm:pt-28 pb-10 sm:pb-12 text-center overflow-hidden">
         {/* soft glow behind the title */}
         <motion.div
           aria-hidden
           initial={{ opacity: 0, scale: 0.85 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1.6, ease: "easeOut" }}
-          className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[680px] h-[680px] rounded-full blur-[120px]"
+          className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[440px] h-[440px] sm:w-[680px] sm:h-[680px] rounded-full blur-[90px] sm:blur-[120px]"
           style={{ background: "radial-gradient(circle, rgba(120,80,200,0.16), rgba(244,184,96,0.08) 45%, transparent 70%)" }}
         />
         <motion.div
@@ -167,7 +167,7 @@ export default function LandingPage() {
       </section>
 
       {/* the player */}
-      <section className="relative h-screen w-full border-y border-white/[0.06] overflow-hidden bg-[#070707]">
+      <section className="relative h-[100svh] w-full border-y border-white/[0.06] overflow-hidden bg-[#070707]">
         {data ? (
           <Space
             data={data}
@@ -194,22 +194,22 @@ export default function LandingPage() {
         )}
 
         {/* active story header */}
-        <div className="absolute top-20 left-6 lg:left-10 z-10 max-w-xs pointer-events-none">
+        <div className="absolute top-16 sm:top-20 left-5 sm:left-6 lg:left-10 z-10 max-w-[62vw] sm:max-w-xs pointer-events-none">
           <div className="text-[10px] uppercase tracking-[0.2em] text-accent font-mono mb-1">
             {story.mode === "glow"
               ? `story · lights up from ${story.snapYear}`
               : `story · the snap of ${story.snapYear}`}
           </div>
-          <h2 className="font-display text-2xl lg:text-3xl leading-tight mb-2">
+          <h2 className="font-display text-xl sm:text-2xl lg:text-3xl leading-tight mb-2">
             {story.title}
           </h2>
-          <p className="text-foreground/55 text-xs lg:text-sm leading-relaxed">
+          <p className="hidden sm:block text-foreground/55 text-xs lg:text-sm leading-relaxed">
             {story.blurb}
           </p>
         </div>
 
-        {/* legend */}
-        <div className="absolute bottom-28 left-6 lg:left-10 z-10 space-y-1">
+        {/* legend — desktop only; on mobile the screen is too tight to spare the room */}
+        <div className="hidden sm:block absolute bottom-28 left-6 lg:left-10 z-10 space-y-1">
           {story.mode === "glow" ? (
             <>
               <div className="flex items-center gap-2 text-[11px] font-mono">
@@ -240,8 +240,8 @@ export default function LandingPage() {
           )}
         </div>
 
-        {/* chapter caption */}
-        <div className="absolute top-1/2 right-6 lg:right-10 -translate-y-1/2 z-10 w-[min(80vw,340px)]">
+        {/* chapter caption — bottom card on mobile, right-rail on desktop */}
+        <div className="absolute z-10 left-1/2 -translate-x-1/2 bottom-32 w-[88vw] sm:left-auto sm:translate-x-0 sm:right-6 lg:right-10 sm:top-1/2 sm:bottom-auto sm:-translate-y-1/2 sm:w-[min(80vw,340px)]">
           <AnimatePresence mode="wait">
             <motion.div
               key={`${story.id}-${chapter.year}`}
@@ -249,7 +249,7 @@ export default function LandingPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }}
               transition={{ duration: 0.4 }}
-              className="backdrop-blur-xl bg-black/55 border border-white/10 rounded-2xl p-5 shadow-2xl"
+              className="backdrop-blur-xl bg-black/55 border border-white/10 rounded-2xl p-4 sm:p-5 shadow-2xl"
             >
               <div className="flex items-center justify-between mb-2">
                 <span className="text-accent text-[11px] font-mono uppercase tracking-wider">
@@ -266,7 +266,7 @@ export default function LandingPage() {
 
         {/* transport — drag-first; the slider invites the drag */}
         {data && (
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 w-[min(86vw,560px)] backdrop-blur-md bg-black/45 border border-white/10 rounded-xl px-4 py-3 flex items-center gap-3">
+          <div className="absolute bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-20 w-[min(92vw,560px)] backdrop-blur-md bg-black/45 border border-white/10 rounded-xl px-3 sm:px-4 py-3 flex items-center gap-2.5 sm:gap-3">
             {/* drag hint */}
             <AnimatePresence>
               {!dragged && (
@@ -329,7 +329,7 @@ export default function LandingPage() {
       </section>
 
       {/* cta */}
-      <section className="py-28 px-6 text-center">
+      <section className="py-20 sm:py-28 px-6 text-center">
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -351,7 +351,7 @@ export default function LandingPage() {
       </section>
 
       {/* method */}
-      <section className="px-6 lg:px-10 py-20 max-w-3xl mx-auto text-foreground/70 text-sm leading-relaxed border-t border-white/[0.06]">
+      <section className="px-6 lg:px-10 py-16 sm:py-20 max-w-3xl mx-auto text-foreground/70 text-sm leading-relaxed border-t border-white/[0.06]">
         <div className="text-[10px] uppercase tracking-[0.2em] text-muted font-mono mb-4">
           method
         </div>
