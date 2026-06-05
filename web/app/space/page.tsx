@@ -297,7 +297,7 @@ export default function SpacePage() {
   const nWords = data?.index.n_words ?? 0;
 
   return (
-    <main className="h-screen w-screen overflow-hidden relative bg-[#070707]">
+    <main className="h-[100svh] w-screen overflow-hidden relative bg-[#070707]">
       <div className="absolute inset-0">
         {data && manifest ? (
           <Space
@@ -321,7 +321,7 @@ export default function SpacePage() {
         )}
       </div>
 
-      <header className="absolute top-16 left-6 lg:left-10 pointer-events-none">
+      <header className="hidden sm:block absolute top-16 left-6 lg:left-10 pointer-events-none">
         <div className="text-[10px] uppercase tracking-[0.18em] text-muted font-mono mb-1">
           space
         </div>
@@ -335,13 +335,14 @@ export default function SpacePage() {
         </p>
       </header>
 
-      {/* floating story bubbles — click to load that curated word set */}
+      {/* story bubbles — load a curated word set. mobile: a horizontal scroll
+          strip across the top; desktop: a top-right wrap */}
       {data && (
-        <div className="absolute top-16 right-6 lg:right-10 z-20 flex flex-col items-end gap-2">
-          <div className="text-[10px] uppercase tracking-[0.2em] text-muted font-mono">
+        <div className="absolute z-20 top-14 left-3 right-3 sm:top-16 sm:left-auto sm:right-6 lg:right-10 flex flex-col items-stretch sm:items-end gap-2">
+          <div className="hidden sm:block text-[10px] uppercase tracking-[0.2em] text-muted font-mono">
             load a story
           </div>
-          <div className="flex flex-wrap justify-end gap-2 max-w-[52vw]">
+          <div className="flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:justify-end sm:max-w-[52vw] sm:overflow-visible scrollbar-thin">
             {STORIES.map((s, i) => (
               <motion.button
                 key={s.id}
@@ -354,7 +355,7 @@ export default function SpacePage() {
                   ease: "easeInOut",
                   delay: i * 0.25,
                 }}
-                className="px-3 py-1.5 rounded-full text-xs font-mono backdrop-blur-md bg-black/40 border border-white/12 text-foreground/75 hover:text-foreground hover:border-white/30 hover:bg-black/60 transition-colors"
+                className="shrink-0 px-3 py-1.5 rounded-full text-xs font-mono backdrop-blur-md bg-black/40 border border-white/12 text-foreground/75 hover:text-foreground hover:border-white/30 hover:bg-black/60 transition-colors"
               >
                 {s.id}
               </motion.button>
@@ -363,7 +364,7 @@ export default function SpacePage() {
         </div>
       )}
 
-      <div className="absolute left-6 lg:left-10 top-1/2 -translate-y-1/2 pointer-events-auto w-[180px]">
+      <div className="hidden sm:block absolute left-6 lg:left-10 top-1/2 -translate-y-1/2 pointer-events-auto w-[180px]">
         <div className="text-[10px] uppercase tracking-widest text-muted font-mono mb-2">
           marked
         </div>
@@ -428,9 +429,10 @@ export default function SpacePage() {
         )}
       </div>
 
-      {/* colour control — off / semantic axis / yearly movement */}
+      {/* colour control — off / semantic axis / yearly movement.
+          mobile: a full-width band stacked above the scrubber */}
       {data && (
-        <div className="absolute bottom-6 left-6 z-20 w-[248px] backdrop-blur-md bg-black/45 border border-white/10 rounded-xl p-3 pointer-events-auto">
+        <div className="absolute z-20 bottom-[4.75rem] left-3 right-3 w-auto sm:bottom-6 sm:left-6 sm:right-auto sm:w-[248px] backdrop-blur-md bg-black/45 border border-white/10 rounded-xl p-3 pointer-events-auto">
           <div className="text-[10px] uppercase tracking-widest text-muted font-mono mb-2">
             colour by
           </div>
@@ -508,7 +510,7 @@ export default function SpacePage() {
       )}
 
       {data && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[min(80vw,720px)] backdrop-blur-md bg-black/45 border border-white/10 rounded-xl px-4 py-3 flex items-center gap-3">
+        <div className="absolute bottom-4 left-3 right-3 sm:bottom-6 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-[min(80vw,720px)] backdrop-blur-md bg-black/45 border border-white/10 rounded-xl px-4 py-3 flex items-center gap-3">
           <button
             onClick={() => setPlaying((p) => !p)}
             className="font-mono text-xs uppercase tracking-wider text-foreground/80 hover:text-accent transition-colors w-10 text-left"

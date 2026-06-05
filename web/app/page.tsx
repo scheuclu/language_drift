@@ -167,7 +167,7 @@ export default function LandingPage() {
       </section>
 
       {/* the player */}
-      <section className="relative h-screen w-full border-y border-white/[0.06] overflow-hidden bg-[#070707]">
+      <section className="relative h-[100svh] w-full border-y border-white/[0.06] overflow-hidden bg-[#070707]">
         {data ? (
           <Space
             data={data}
@@ -194,22 +194,22 @@ export default function LandingPage() {
         )}
 
         {/* active story header */}
-        <div className="absolute top-20 left-6 lg:left-10 z-10 max-w-xs pointer-events-none">
+        <div className="absolute top-16 sm:top-20 left-4 sm:left-6 lg:left-10 z-10 max-w-[78%] sm:max-w-xs pointer-events-none">
           <div className="text-[10px] uppercase tracking-[0.2em] text-accent font-mono mb-1">
             {story.mode === "glow"
               ? `story · lights up from ${story.snapYear}`
               : `story · the snap of ${story.snapYear}`}
           </div>
-          <h2 className="font-display text-2xl lg:text-3xl leading-tight mb-2">
+          <h2 className="font-display text-xl sm:text-2xl lg:text-3xl leading-tight mb-2">
             {story.title}
           </h2>
-          <p className="text-foreground/55 text-xs lg:text-sm leading-relaxed">
+          <p className="hidden sm:block text-foreground/55 text-xs lg:text-sm leading-relaxed">
             {story.blurb}
           </p>
         </div>
 
         {/* legend */}
-        <div className="absolute bottom-28 left-6 lg:left-10 z-10 space-y-1">
+        <div className="hidden sm:block absolute bottom-28 left-6 lg:left-10 z-10 space-y-1">
           {story.mode === "glow" ? (
             <>
               <div className="flex items-center gap-2 text-[11px] font-mono">
@@ -240,8 +240,8 @@ export default function LandingPage() {
           )}
         </div>
 
-        {/* chapter caption */}
-        <div className="absolute top-1/2 right-6 lg:right-10 -translate-y-1/2 z-10 w-[min(80vw,340px)]">
+        {/* chapter caption — bottom band on mobile, mid-right on desktop */}
+        <div className="absolute z-10 left-4 right-4 bottom-24 sm:left-auto sm:right-6 lg:right-10 sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:w-[min(80vw,340px)]">
           <AnimatePresence mode="wait">
             <motion.div
               key={`${story.id}-${chapter.year}`}
@@ -249,7 +249,7 @@ export default function LandingPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }}
               transition={{ duration: 0.4 }}
-              className="backdrop-blur-xl bg-black/55 border border-white/10 rounded-2xl p-5 shadow-2xl"
+              className="backdrop-blur-xl bg-black/55 border border-white/10 rounded-2xl p-4 sm:p-5 shadow-2xl"
             >
               <div className="flex items-center justify-between mb-2">
                 <span className="text-accent text-[11px] font-mono uppercase tracking-wider">
