@@ -32,6 +32,11 @@ type Props = {
   // current year; stars tinted white (still) -> hot (moved most). Mutually
   // exclusive with axisColor.
   movement?: Float32Array | null;
+  // cinematic story camera: slow drift + breathing so the galaxy feels alive even
+  // paused, plus a gentle push-in as the story progresses (progress 0..1).
+  // Render-only modulation on top of the fit camera.
+  cinematic?: boolean;
+  progress?: number;
 };
 
 const TWEEN_MS = 700;
@@ -121,6 +126,8 @@ export function Space({
   markedGlow = false,
   axisColor = null,
   movement = null,
+  cinematic = false,
+  progress = 0,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -191,6 +198,8 @@ export function Space({
     markedGlow,
     axis,
     movement,
+    cinematic,
+    progress,
   });
   draw.current = {
     markedIndices,
@@ -202,6 +211,8 @@ export function Space({
     markedGlow,
     axis,
     movement,
+    cinematic,
+    progress,
   };
 
   // Initial / resize setup + (interactive only) d3-zoom binding.
@@ -318,7 +329,7 @@ export function Space({
     const by0 = cy + miny * half, by1 = cy + maxy * half;
     const bw = Math.max(bx1 - bx0, 1);
     const bh = Math.max(by1 - by0, 1);
-    const fitPad = 0.52; // marked words fill ~half the viewport
+    const fitPad = 0.86; // frame fills most of the viewport (wide, galaxy in view)
     let k = Math.min((w * fitPad) / bw, (h * fitPad) / bh);
     k = Math.max(0.4, Math.min(50, k));
     const bcx = (bx0 + bx1) / 2, bcy = (by0 + by1) / 2;
@@ -384,8 +395,23 @@ export function Space({
       ctx.fillRect(0, 0, w, h);
 
       // --- world space (zoom) for the points ---
-      ctx.translate(tr.x, tr.y);
-      ctx.scale(tr.k, tr.k);
+      if (D.cinematic) {
+        // slow drift + breathing (alive even when paused) and a gentle push-in
+        // toward the centred story as it progresses through the years
+        const ts = performance.now() / 1000;
+        const driftX = Math.sin(ts * 0.1) * 16;
+        const driftY = Math.cos(ts * 0.083) * 11;
+        const push = 1 + (D.progress ?? 0) * 0.35;
+        const breathe = push * (1 + Math.sin(ts * 0.15) * 0.012);
+        ctx.translate(cx, cy);
+        ctx.scale(breathe, breathe);
+        ctx.translate(-cx, -cy);
+        ctx.translate(tr.x + driftX, tr.y + driftY);
+        ctx.scale(tr.k, tr.k);
+      } else {
+        ctx.translate(tr.x, tr.y);
+        ctx.scale(tr.k, tr.k);
+      }
 
       const sx = (i: number) => cx + cur[i * 2] * half;
       const sy = (i: number) => cy + cur[i * 2 + 1] * half;

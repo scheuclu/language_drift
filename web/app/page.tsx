@@ -201,11 +201,13 @@ export default function LandingPage() {
             markedColors={markedColors}
             highlightedMarkedIdx={null}
             labels={labels}
-            dimBackground
+            dimBackground={story.mode === "glow"}
             interactive={false}
             fitIndices={fitIndices}
-            fitMinSpan={story.mode === "glow" ? 0.62 : undefined}
+            fitMinSpan={2.2}
             markedGlow={story.mode === "glow"}
+            cinematic
+            progress={years.length > 1 ? yearIndex / (years.length - 1) : 0}
             freqByYear={data.freqByYear}
           />
         ) : (
