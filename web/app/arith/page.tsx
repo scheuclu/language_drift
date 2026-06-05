@@ -8,6 +8,32 @@ const DEFAULT_TERMS: Term[] = [
   { sign: -1, word: "rich" },
 ];
 
+const EXAMPLES: { label: string; terms: Term[] }[] = [
+  {
+    label: "king − man + woman",
+    terms: [
+      { sign: 1, word: "king" },
+      { sign: -1, word: "man" },
+      { sign: 1, word: "woman" },
+    ],
+  },
+  {
+    label: "paris − france + germany",
+    terms: [
+      { sign: 1, word: "paris" },
+      { sign: -1, word: "france" },
+      { sign: 1, word: "germany" },
+    ],
+  },
+  {
+    label: "usa − rich",
+    terms: [
+      { sign: 1, word: "usa" },
+      { sign: -1, word: "rich" },
+    ],
+  },
+];
+
 const ARITH_YEAR = 2025;
 
 export default function ArithPage() {
@@ -45,21 +71,37 @@ export default function ArithPage() {
   }
 
   return (
-    <main className="min-h-dvh w-full bg-[#070707] pt-20 pb-16 px-5 sm:px-6 lg:px-10">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-[10px] uppercase tracking-[0.18em] text-muted font-mono mb-1">
-          arithmetic
+    <main className="relative min-h-dvh w-full overflow-hidden bg-[#070707] pt-20 pb-16 px-5 sm:px-6 lg:px-10">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-[680px] h-[420px] rounded-full blur-[120px]"
+        style={{ background: "radial-gradient(circle, rgba(139,108,255,0.12), rgba(244,184,96,0.05) 50%, transparent 72%)" }}
+      />
+      <div className="relative max-w-4xl mx-auto">
+        <div className="text-[10px] uppercase tracking-[0.22em] text-accent font-mono mb-2">
+          vector arithmetic
         </div>
-        <h1 className="font-display text-2xl sm:text-3xl leading-tight sm:leading-none mb-3">
-          Vector arithmetic over aligned embeddings.
+        <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl leading-tight sm:leading-none mb-3">
+          Geometry that encodes meaning.
         </h1>
-        <p className="text-foreground/55 text-sm max-w-2xl leading-relaxed mb-8 sm:mb-10">
-          The {ARITH_YEAR} aligned embeddings form a vector space where geometry
-          encodes meaning. Sum and subtract word vectors, find the nearest real
-          words to the result. <span className="text-foreground/80">king − man + woman ≈ queen.</span>{" "}
-          <span className="text-foreground/80">paris − france + germany ≈ berlin.</span>{" "}
-          Try your own.
+        <p className="text-foreground/60 text-sm sm:text-base max-w-2xl leading-relaxed mb-6">
+          The {ARITH_YEAR} aligned embeddings form a vector space where direction
+          carries sense. Add and subtract word vectors, then read off the nearest
+          real words. Tap an example, or build your own.
         </p>
+        {/* example equations — click to load */}
+        <div className="flex flex-wrap items-center gap-2 mb-10">
+          {EXAMPLES.map((ex) => (
+            <button
+              key={ex.label}
+              type="button"
+              onClick={() => setTerms(ex.terms)}
+              className="px-3 py-1.5 rounded-full text-xs font-mono border border-white/12 bg-white/[0.03] text-foreground/75 hover:text-foreground hover:border-accent/40 hover:bg-accent/[0.07] transition-colors"
+            >
+              {ex.label}
+            </button>
+          ))}
+        </div>
 
         {/* Equation */}
         <div className="flex flex-wrap items-center gap-2 mb-8 font-mono">
@@ -89,7 +131,12 @@ export default function ArithPage() {
             nearest in {ARITH_YEAR}
           </div>
           {!corpus ? (
-            <div className="text-muted text-sm font-mono">
+            <div className="flex items-center gap-2.5 text-muted text-sm font-mono">
+              <span className="flex gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-accent-2 animate-pulse" style={{ animationDelay: "200ms" }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-accent-3 animate-pulse" style={{ animationDelay: "400ms" }} />
+              </span>
               {error ?? "loading corpus…"}
             </div>
           ) : !allValid ? (
@@ -99,28 +146,37 @@ export default function ArithPage() {
           ) : !results ? (
             <div className="text-muted/60 text-sm font-mono italic">add at least one term</div>
           ) : (
-            <ol className="space-y-1">
-              {results.map((r, i) => (
-                <li
-                  key={r.word}
-                  className="flex items-baseline gap-3 sm:gap-4 font-mono group"
-                >
-                  <span className="text-muted/40 text-xs tabular-nums w-6 text-right shrink-0">
-                    {i + 1}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => addAsTerm(r.word)}
-                    className="text-foreground text-lg hover:text-accent active:text-accent transition-colors -mx-1 px-1 py-0.5 rounded"
-                    title="add to terms"
-                  >
-                    {r.word}
-                  </button>
-                  <span className="text-muted text-sm tabular-nums">
-                    {r.sim.toFixed(3)}
-                  </span>
-                </li>
-              ))}
+            <ol className="space-y-2.5">
+              {results.map((r, i) => {
+                const max = results[0]?.sim || 1;
+                const pct = Math.max(4, (r.sim / max) * 100);
+                return (
+                  <li key={r.word} className="group">
+                    <div className="flex items-baseline gap-3 sm:gap-4 font-mono">
+                      <span className="text-muted/40 text-xs tabular-nums w-6 text-right shrink-0">
+                        {i + 1}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => addAsTerm(r.word)}
+                        className="text-foreground text-lg hover:text-accent active:text-accent transition-colors -mx-1 px-1 py-0.5 rounded"
+                        title="add to terms"
+                      >
+                        {r.word}
+                      </button>
+                      <span className="ml-auto text-muted text-sm tabular-nums">
+                        {r.sim.toFixed(3)}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 ml-9 h-[3px] rounded-full bg-white/[0.06] overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-accent to-accent-2 transition-all duration-500 group-hover:to-accent-3"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </li>
+                );
+              })}
             </ol>
           )}
         </div>

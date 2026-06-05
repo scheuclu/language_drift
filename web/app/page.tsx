@@ -112,56 +112,66 @@ export default function LandingPage() {
 
   return (
     <main className="flex-1">
-      {/* hero — cinematic staggered reveal */}
-      <section className="relative min-h-[58svh] flex flex-col items-center justify-center px-6 pt-24 sm:pt-28 pb-10 sm:pb-12 text-center overflow-hidden">
-        {/* soft glow behind the title */}
+      {/* hero — cinematic staggered reveal over a drifting aurora */}
+      <section className="relative min-h-[72svh] sm:min-h-[82svh] flex flex-col items-center justify-center px-6 pt-28 sm:pt-32 pb-12 text-center overflow-hidden">
+        {/* aurora atmosphere */}
         <motion.div
           aria-hidden
-          initial={{ opacity: 0, scale: 0.85 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1.6, ease: "easeOut" }}
-          className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[440px] h-[440px] sm:w-[680px] sm:h-[680px] rounded-full blur-[90px] sm:blur-[120px]"
-          style={{ background: "radial-gradient(circle, rgba(120,80,200,0.16), rgba(244,184,96,0.08) 45%, transparent 70%)" }}
-        />
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 1.8, ease: "easeOut" }}
+          className="pointer-events-none absolute inset-0 overflow-hidden"
+        >
+          <div
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] sm:w-[760px] sm:h-[760px] rounded-full blur-[100px] sm:blur-[140px]"
+            style={{ background: "radial-gradient(circle, rgba(120,80,200,0.14), rgba(244,184,96,0.06) 45%, transparent 70%)" }}
+          />
+          <div className="aurora aurora-a" style={{ top: "-12%", left: "8%", width: "min(46vw,520px)", aspectRatio: "1", background: "radial-gradient(circle, rgba(244,184,96,0.22), transparent 70%)" }} />
+          <div className="aurora aurora-b" style={{ top: "2%", right: "0%", width: "min(50vw,560px)", aspectRatio: "1", background: "radial-gradient(circle, rgba(139,108,255,0.22), transparent 70%)" }} />
+          <div className="aurora aurora-c" style={{ bottom: "-24%", left: "32%", width: "min(54vw,620px)", aspectRatio: "1.3", background: "radial-gradient(circle, rgba(93,213,232,0.13), transparent 70%)" }} />
+        </motion.div>
+
         <motion.div
           variants={HERO_CONTAINER}
           initial="hidden"
           animate="show"
           className="relative max-w-3xl"
         >
-          <motion.div
-            variants={HERO_ITEM}
-            className="text-accent text-xs font-mono uppercase tracking-[0.25em] mb-6"
-          >
-            Word2Vec · 2014 → 2025
+          <motion.div variants={HERO_ITEM} className="flex justify-center mb-7">
+            <span className="kicker">
+              <span className="kicker-dot" />
+              Word2Vec · 2014 → 2025
+            </span>
           </motion.div>
-          <h1 className="font-display text-[clamp(44px,7.5vw,104px)] leading-[0.95] tracking-tight">
-            <motion.span variants={HERO_ITEM} className="block">
+          <h1 className="font-display text-[clamp(46px,8.4vw,124px)] leading-[0.92] tracking-[-0.02em]">
+            <motion.span variants={HERO_ITEM} className="block text-foreground">
               English changes
             </motion.span>
-            <motion.em variants={HERO_ITEM} className="block">
+            <motion.em variants={HERO_ITEM} className="block text-shimmer">
               while you&apos;re looking away.
             </motion.em>
           </h1>
           <motion.p
             variants={HERO_ITEM}
-            className="text-foreground/70 text-base lg:text-xl mt-8 max-w-2xl mx-auto leading-relaxed"
+            className="text-foreground/65 text-base sm:text-lg lg:text-xl mt-8 max-w-2xl mx-auto leading-relaxed"
           >
-            Twelve years of word embeddings, projected into one map. Drag through the
-            years and watch a word tear loose from its old neighbors and snap onto
-            new ones — the exact moment a meaning flips.
+            Twelve years of word embeddings, projected into a single map. Drag through
+            the years and watch a word <span className="text-foreground">tear loose</span> from
+            its old neighbors and <span className="text-foreground">snap onto new ones</span> —
+            the exact moment a meaning flips.
           </motion.p>
           <motion.div
             variants={HERO_ITEM}
-            className="mt-9 text-muted text-sm font-mono"
+            className="mt-10 flex flex-col items-center gap-2 text-muted"
           >
+            <span className="text-[11px] font-mono uppercase tracking-[0.25em]">
+              drag the years
+            </span>
             <motion.span
-              animate={{ y: [0, 5, 0] }}
-              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-              className="inline-block"
-            >
-              drag the years ↓
-            </motion.span>
+              animate={{ y: [0, 7, 0], opacity: [0.35, 1, 0.35] }}
+              transition={{ duration: 1.9, repeat: Infinity, ease: "easeInOut" }}
+              className="block w-px h-8 bg-gradient-to-b from-accent to-transparent"
+            />
           </motion.div>
         </motion.div>
       </section>
@@ -188,8 +198,17 @@ export default function LandingPage() {
             freqByYear={data.freqByYear}
           />
         ) : (
-          <div className="absolute inset-0 grid place-items-center text-muted font-mono text-sm">
-            {error ?? "loading the map…"}
+          <div className="absolute inset-0 grid place-items-center">
+            <div className="flex flex-col items-center gap-4">
+              <div className="flex gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-accent animate-pulse" style={{ animationDelay: "0ms" }} />
+                <span className="w-2 h-2 rounded-full bg-accent-2 animate-pulse" style={{ animationDelay: "200ms" }} />
+                <span className="w-2 h-2 rounded-full bg-accent-3 animate-pulse" style={{ animationDelay: "400ms" }} />
+              </div>
+              <span className="text-muted font-mono text-[11px] uppercase tracking-[0.22em]">
+                {error ?? "charting the galaxy…"}
+              </span>
+            </div>
           </div>
         )}
 
@@ -328,35 +347,86 @@ export default function LandingPage() {
         )}
       </section>
 
+      {/* stats band — the project in five numbers */}
+      <section className="relative px-6 lg:px-10 py-16 sm:py-24 overflow-hidden">
+        <div className="hairline max-w-5xl mx-auto mb-14 sm:mb-20" />
+        <motion.div
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.4 }}
+          variants={{ hidden: {}, show: { transition: { staggerChildren: 0.12 } } }}
+          className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10 text-center"
+        >
+          {[
+            { n: "12", l: "years · 2014–2025" },
+            { n: data ? data.index.n_words.toLocaleString() : "52,894", l: "words mapped" },
+            { n: "300", l: "dimensions / word" },
+            { n: "~1B", l: "tokens trained / year" },
+          ].map((s) => (
+            <motion.div
+              key={s.l}
+              variants={{
+                hidden: { opacity: 0, y: 18 },
+                show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } },
+              }}
+            >
+              <div className="font-display text-[clamp(40px,6vw,76px)] leading-none text-gold-violet tabular-nums">
+                {s.n}
+              </div>
+              <div className="mt-3 text-[11px] sm:text-xs font-mono uppercase tracking-[0.18em] text-muted">
+                {s.l}
+              </div>
+            </motion.div>
+          ))}
+        </motion.div>
+      </section>
+
       {/* cta */}
-      <section className="py-20 sm:py-28 px-6 text-center">
+      <section className="relative py-24 sm:py-36 px-6 text-center overflow-hidden">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[400px] rounded-full blur-[120px]"
+          style={{ background: "radial-gradient(circle, rgba(244,184,96,0.10), transparent 70%)" }}
+        />
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.3 }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.7 }}
+          className="relative"
         >
-          <h2 className="font-display text-[clamp(32px,5vw,64px)] leading-[1.05]">
-            This is one story. <em>The map holds&nbsp;the&nbsp;rest.</em>
+          <h2 className="font-display text-[clamp(34px,5.5vw,72px)] leading-[1.04]">
+            This is one story.{" "}
+            <em className="text-shimmer">The map holds&nbsp;the&nbsp;rest.</em>
           </h2>
-          <div className="mt-9 flex items-center justify-center">
+          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link href="/space" className="btn-glow group">
+              Roam the full space
+              <span className="transition-transform duration-300 group-hover:translate-x-1">
+                →
+              </span>
+            </Link>
             <Link
-              href="/space"
-              className="inline-block px-8 py-4 rounded-full bg-accent text-black font-mono text-sm uppercase tracking-widest hover:bg-accent/85 transition-colors"
+              href="/arith"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-full border border-white/15 text-foreground/75 hover:text-foreground hover:border-white/30 font-mono text-xs uppercase tracking-widest transition-colors"
             >
-              Roam the full space →
+              Try word arithmetic
             </Link>
           </div>
         </motion.div>
       </section>
 
       {/* method */}
-      <section className="px-6 lg:px-10 py-16 sm:py-20 max-w-3xl mx-auto text-foreground/70 text-sm leading-relaxed border-t border-white/[0.06]">
-        <div className="text-[10px] uppercase tracking-[0.2em] text-muted font-mono mb-4">
+      <section className="px-6 lg:px-10 py-20 sm:py-28 max-w-2xl mx-auto">
+        <div className="hairline mb-12 sm:mb-16" />
+        <div className="text-[10px] uppercase tracking-[0.25em] text-accent font-mono mb-6">
           method
         </div>
-        <p>
-          Twelve per-year Word2Vec models (300d, trained on ~1B tokens of Common
+        <p className="text-foreground/75 text-base sm:text-lg leading-relaxed">
+          <span className="float-left font-display text-[64px] leading-[0.7] pr-3 pt-2 text-gold-violet">
+            T
+          </span>
+          welve per-year Word2Vec models (300d, trained on ~1B tokens of Common
           Crawl each) share one frozen <em>compass</em>, so all years live in the
           same coordinate system. Every word-year is then projected to 2D with a
           single joint UMAP — which is why a word can sit still for years and then
