@@ -25,9 +25,7 @@ export function Nav() {
           className="font-display text-base sm:text-lg leading-none flex items-baseline gap-2 shrink-0"
         >
           <span className="inline-block w-2 h-2 rounded-full bg-accent shadow-[0_0_8px_1px_rgba(244,184,96,0.7)]" />
-          {/* full name on roomy screens, just "Drift" when space is tight */}
-          <span className="hidden sm:inline">Language&nbsp;Drift</span>
-          <span className="sm:hidden">Drift</span>
+          WordDrift
         </Link>
         <ul className="flex items-center gap-0.5 sm:gap-2 lg:gap-3 text-sm">
           {LINKS.map((l) => {
