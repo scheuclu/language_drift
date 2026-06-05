@@ -36,14 +36,10 @@ function hexToRgb(hex: string): RGB {
 export default function LandingPage() {
   const [data, setData] = useState<SpaceData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [storyIdx, setStoryIdx] = useState(0);
   const [yearIndex, setYearIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [dragged, setDragged] = useState(false);
-  const [tour, setTour] = useState(false);
-  const tourRef = useRef(tour);
-  tourRef.current = tour;
   const playRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -59,7 +55,8 @@ export default function LandingPage() {
     return m;
   }, [data]);
 
-  const story = STORIES[storyIdx];
+  // landing page tells one story: AI slop
+  const story = STORIES.find((s) => s.id === "ai-slop") ?? STORIES[0];
   const years = data?.index.years ?? [];
   const currentYear = years[yearIndex];
 
@@ -91,26 +88,6 @@ export default function LandingPage() {
     for (const ch of story.chapters) if (currentYear !== undefined && ch.year <= currentYear) c = ch;
     return c;
   }, [story, currentYear]);
-
-  // reset to the start year whenever the story changes. In tour mode, auto-play
-  // the new story; otherwise wait for a drag.
-  useEffect(() => {
-    setYearIndex(0);
-    setPlaying(tourRef.current);
-  }, [storyIdx]);
-
-  // tour driver: when a story finishes playing, pause on the finale, then glide
-  // to the next story (wrapping) — a hands-free cinematic film of all the drifts.
-  useEffect(() => {
-    if (!tour || !data) return;
-    if (!playing && yearIndex >= data.index.years.length - 1) {
-      const t = window.setTimeout(
-        () => setStoryIdx((s) => (s + 1) % STORIES.length),
-        2200,
-      );
-      return () => window.clearTimeout(t);
-    }
-  }, [tour, playing, yearIndex, data]);
 
   // play loop
   useEffect(() => {
@@ -183,7 +160,7 @@ export default function LandingPage() {
               transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
               className="inline-block"
             >
-              pick a story ↓
+              drag the years ↓
             </motion.span>
           </motion.div>
         </motion.div>
@@ -215,48 +192,6 @@ export default function LandingPage() {
             {error ?? "loading the map…"}
           </div>
         )}
-
-        {/* story tabs + play-the-film toggle */}
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 px-3">
-          <div className="flex flex-wrap justify-center gap-1.5">
-            {STORIES.map((s, i) => (
-              <button
-                key={s.id}
-                onClick={() => {
-                  setTour(false);
-                  setStoryIdx(i);
-                }}
-                className={`px-3 py-1.5 rounded-full text-xs font-mono transition-colors border tabular-nums ${
-                  i === storyIdx
-                    ? "bg-accent text-black border-accent"
-                    : "border-white/10 text-muted hover:text-foreground hover:border-white/25 bg-black/30 backdrop-blur-md"
-                }`}
-              >
-                {s.id} · {s.snapYear}
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={() => {
-              if (tour) {
-                setTour(false);
-                setPlaying(false);
-              } else {
-                setTour(true);
-                setStoryIdx(0);
-                setYearIndex(0);
-                setPlaying(true);
-              }
-            }}
-            className={`px-4 py-1.5 rounded-full text-xs font-mono tracking-wide transition-colors border ${
-              tour
-                ? "bg-accent/15 border-accent/50 text-accent"
-                : "border-white/15 text-foreground/80 hover:text-foreground hover:border-white/35 bg-black/40 backdrop-blur-md"
-            }`}
-          >
-            {tour ? "⏸ touring — stop" : "▶ play the film"}
-          </button>
-        </div>
 
         {/* active story header */}
         <div className="absolute top-20 left-6 lg:left-10 z-10 max-w-xs pointer-events-none">
@@ -354,7 +289,6 @@ export default function LandingPage() {
 
             <button
               onClick={() => {
-                setTour(false);
                 if (atEnd) setYearIndex(0);
                 setPlaying((p) => (atEnd ? true : !p));
               }}
@@ -364,7 +298,6 @@ export default function LandingPage() {
             </button>
 
             <motion.div
-              key={storyIdx}
               className="flex-1"
               animate={dragged ? { x: 0 } : { x: [0, -6, 6, -5, 5, 0] }}
               transition={
@@ -380,7 +313,6 @@ export default function LandingPage() {
                 step={1}
                 value={yearIndex}
                 onChange={(e) => {
-                  setTour(false);
                   setPlaying(false);
                   setDragged(true);
                   setYearIndex(parseInt(e.target.value, 10));
@@ -405,7 +337,7 @@ export default function LandingPage() {
           transition={{ duration: 0.6 }}
         >
           <h2 className="font-display text-[clamp(32px,5vw,64px)] leading-[1.05]">
-            These are four words. <em>The map holds&nbsp;the&nbsp;rest.</em>
+            This is one story. <em>The map holds&nbsp;the&nbsp;rest.</em>
           </h2>
           <div className="mt-9 flex items-center justify-center">
             <Link
@@ -429,7 +361,7 @@ export default function LandingPage() {
           same coordinate system. Every word-year is then projected to 2D with a
           single joint UMAP — which is why a word can sit still for years and then
           jump to a new neighborhood the moment its meaning shifts. The map holds{" "}
-          {data ? data.index.n_words.toLocaleString() : "52,894"} words; each story
+          {data ? data.index.n_words.toLocaleString() : "52,894"} words; the story
           above just lights a few of them up.
         </p>
       </section>

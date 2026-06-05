@@ -154,6 +154,9 @@ export function Space({
   const trail = useRef<Map<number, number[]>>(new Map());
   // colour-axis: scratch sublists (one per colour step), reused each frame
   const axisScratch = useRef<number[][] | null>(null);
+  // cinematic push-in: eased toward the target progress so the zoom glides
+  // smoothly between year steps instead of jumping
+  const progressEase = useRef(0);
 
   const n = data.index.n_words;
 
@@ -401,7 +404,10 @@ export function Space({
         const ts = performance.now() / 1000;
         const driftX = Math.sin(ts * 0.1) * 16;
         const driftY = Math.cos(ts * 0.083) * 11;
-        const push = 1 + (D.progress ?? 0) * 0.35;
+        // ease the push-in toward the target so the year-to-year zoom glides
+        const targetP = D.progress ?? 0;
+        progressEase.current += (targetP - progressEase.current) * 0.05;
+        const push = 1 + progressEase.current * 0.35;
         const breathe = push * (1 + Math.sin(ts * 0.15) * 0.012);
         ctx.translate(cx, cy);
         ctx.scale(breathe, breathe);
