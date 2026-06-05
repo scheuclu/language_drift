@@ -60,7 +60,7 @@ Key cross-cutting facts:
 
 ## Nav-hidden web routes
 
-The live nav is just **story · space · arith**. Hidden routes still build and resolve by direct URL, just aren't linked (`web/components/Nav.tsx`):
+The live nav is just **intro · explore · arith** — these are display labels for routes `/` · `/space` · `/arith` (the labels were renamed from story/space; the route paths are unchanged, so the nav "explore" link is `/space`, distinct from the hidden `/explore` route below). Hidden routes still build and resolve by direct URL, just aren't linked (`web/components/Nav.tsx`):
 - **`/llm`** — hidden in prod (not good enough yet). An improved version is in progress on the **`feature/llm-drama`** branch; re-add the nav link when it ships.
 - **`/gallery`, `/ternary`, `/explore`** — candidates for full removal. `/gallery` still routes into the removed `/explore` constellation view; `/explore` survives only as a deep-link target from `/llm`. Unless one earns its place back, delete the route folders (`web/app/{gallery,ternary,explore}`) and any now-unused components/lib (`Constellation`, `Triangle`, `SearchBar`, `featured.ts`, etc.).
 

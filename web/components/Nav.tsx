@@ -9,8 +9,8 @@ import { usePathname } from "next/navigation";
 //  - /gallery, /ternary: candidates for deletion (gallery routes into the
 //    removed /explore view); /explore is deep-link-only. See CLAUDE.md.
 const LINKS = [
-  { href: "/", label: "story" },
-  { href: "/space", label: "space" },
+  { href: "/", label: "intro" },
+  { href: "/space", label: "explore" },
   { href: "/arith", label: "arith" },
 ];
 
