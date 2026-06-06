@@ -88,6 +88,17 @@ function ExplorePageInner() {
         style={{ height: `${nYears * 100}vh` }}
       >
         <div className="sticky top-0 h-screen w-full">
+          {/* background atmosphere */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 overflow-hidden"
+          >
+            <div
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full blur-[140px]"
+              style={{ background: "radial-gradient(circle, rgba(244,184,96,0.06), rgba(139,108,255,0.03) 50%, transparent 70%)" }}
+            />
+          </div>
+
           {data ? (
             <Constellation
               data={data}

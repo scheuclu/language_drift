@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { loadManifest } from "@/lib/data";
@@ -643,16 +644,38 @@ function MarkedList({
           key={w}
           onMouseEnter={onHoverChip ? () => onHoverChip(i) : undefined}
           onMouseLeave={onHoverChip ? () => onHoverChip(null) : undefined}
-          className="group flex items-center gap-2 backdrop-blur-md bg-black/35 hover:bg-black/55 border border-white/10 rounded px-2 py-1.5 text-xs font-mono transition-colors"
+          className="group flex items-center gap-2 backdrop-blur-md bg-black/35 hover:bg-black/55 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-mono transition-all duration-200"
         >
           <span
-            className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-[0_0_8px_currentColor]"
+            className="inline-block w-2 h-2 rounded-full flex-shrink-0 shadow-[0_0_8px_currentColor]"
             style={{ background: hex[i], color: hex[i] }}
           />
           <span className="flex-1 text-foreground truncate">{w}</span>
+          <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+            <Link
+              href={`/explore?w=${w}`}
+              title={`View '${w}' neighborhood`}
+              className="text-muted hover:text-accent transition-colors p-0.5"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <circle cx="12" cy="12" r="10" />
+                <polygon points="16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88" />
+              </svg>
+            </Link>
+            <Link
+              href={`/arith?w=${w}`}
+              title={`Use '${w}' in word math`}
+              className="text-muted hover:text-accent transition-colors p-0.5"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <line x1="12" y1="5" x2="12" y2="19" />
+              </svg>
+            </Link>
+          </div>
           <button
             onClick={() => onUnmark(w)}
-            className="text-muted hover:text-foreground transition-colors leading-none w-6 h-6 -my-1 grid place-items-center text-sm opacity-60 group-hover:opacity-100"
+            className="text-muted hover:text-red-400 transition-colors leading-none w-5 h-5 -my-1 grid place-items-center text-sm opacity-50 group-hover:opacity-100"
             aria-label={`remove ${w}`}
           >
             ×
