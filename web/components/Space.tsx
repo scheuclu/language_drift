@@ -206,6 +206,7 @@ export function Space({
     cinematic,
     progress,
   });
+  // eslint-disable-next-line react-hooks/refs
   draw.current = {
     markedIndices,
     markedColors,

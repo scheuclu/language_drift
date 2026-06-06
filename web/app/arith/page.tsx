@@ -47,6 +47,7 @@ function ArithPageInner() {
 
   useEffect(() => {
     if (w) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTerms([{ sign: 1, word: w }]);
     }
   }, [w]);
@@ -277,7 +278,10 @@ function WordInput({
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => setLocal(value), [value]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLocal(value);
+  }, [value]);
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {

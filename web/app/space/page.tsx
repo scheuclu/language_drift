@@ -45,7 +45,10 @@ function AxisPole({
 }) {
   const [q, setQ] = useState(word);
   const [open, setOpen] = useState(false);
-  useEffect(() => setQ(word), [word]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setQ(word);
+  }, [word]);
   const hits = useMemo(() => {
     const s = q.trim().toLowerCase();
     if (!s) return [];
@@ -168,6 +171,7 @@ function SpacePageInner() {
     if (queryWord && data) {
       const idx = wordToIdx.get(queryWord);
       if (idx !== undefined) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setMarked((prev) => (prev.includes(queryWord) ? prev : [...prev, queryWord]));
         setTimeout(() => setFlyToIdx(idx), 350);
       }
