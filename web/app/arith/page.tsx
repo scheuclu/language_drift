@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { loadArithCorpus, arithmeticTopK, type ArithCorpus, type Term } from "@/lib/arith";
 
 const DEFAULT_TERMS: Term[] = [
@@ -32,6 +33,23 @@ const EXAMPLES: { label: string; terms: Term[] }[] = [
       { sign: -1, word: "rich" },
     ],
   },
+];
+
+// candidate analogies for "surprise me" — filtered at runtime to ones whose
+// terms all exist in the corpus, so a shuffle never lands on a dead term.
+const SURPRISES: Term[][] = [
+  [{ sign: 1, word: "king" }, { sign: -1, word: "man" }, { sign: 1, word: "woman" }],
+  [{ sign: 1, word: "paris" }, { sign: -1, word: "france" }, { sign: 1, word: "germany" }],
+  [{ sign: 1, word: "paris" }, { sign: -1, word: "france" }, { sign: 1, word: "italy" }],
+  [{ sign: 1, word: "paris" }, { sign: -1, word: "france" }, { sign: 1, word: "japan" }],
+  [{ sign: 1, word: "better" }, { sign: -1, word: "good" }, { sign: 1, word: "bad" }],
+  [{ sign: 1, word: "bigger" }, { sign: -1, word: "big" }, { sign: 1, word: "small" }],
+  [{ sign: 1, word: "walking" }, { sign: -1, word: "walk" }, { sign: 1, word: "swim" }],
+  [{ sign: 1, word: "queen" }, { sign: -1, word: "woman" }, { sign: 1, word: "man" }],
+  [{ sign: 1, word: "london" }, { sign: -1, word: "england" }, { sign: 1, word: "spain" }],
+  [{ sign: 1, word: "summer" }, { sign: -1, word: "hot" }, { sign: 1, word: "cold" }],
+  [{ sign: 1, word: "doctor" }, { sign: -1, word: "hospital" }, { sign: 1, word: "school" }],
+  [{ sign: 1, word: "coffee" }, { sign: -1, word: "morning" }, { sign: 1, word: "night" }],
 ];
 
 const ARITH_YEAR = 2025;
@@ -70,6 +88,29 @@ export default function ArithPage() {
     setTerms((prev) => [...prev, { sign: 1, word }]);
   }
 
+  // analogies whose every term is in the corpus — safe to shuffle through
+  const validSurprises = useMemo(() => {
+    if (!corpus) return [];
+    return SURPRISES.filter((t) =>
+      t.every((x) => corpus.wordToIdx.has(x.word.toLowerCase())),
+    );
+  }, [corpus]);
+
+  function surpriseMe() {
+    if (validSurprises.length === 0) return;
+    const cur = terms.map((t) => `${t.sign}${t.word}`).join(",");
+    const pool = validSurprises.filter(
+      (t) => t.map((x) => `${x.sign}${x.word}`).join(",") !== cur,
+    );
+    const pick = (pool.length ? pool : validSurprises)[
+      Math.floor(Math.random() * (pool.length ? pool.length : validSurprises.length))
+    ];
+    setTerms(pick.map((t) => ({ ...t })));
+  }
+
+  const answer = results && results.length > 0 ? results[0] : null;
+  const others = results ? results.slice(1) : [];
+
   return (
     <main className="relative min-h-dvh w-full overflow-hidden bg-[#070707] pt-20 pb-16 px-5 sm:px-6 lg:px-10">
       <div
@@ -101,6 +142,15 @@ export default function ArithPage() {
               {ex.label}
             </button>
           ))}
+          {validSurprises.length > 0 && (
+            <button
+              type="button"
+              onClick={surpriseMe}
+              className="px-3 py-1.5 rounded-full text-xs font-mono border border-accent/30 bg-accent/[0.06] text-accent hover:bg-accent/[0.12] transition-colors"
+            >
+              ✦ surprise me
+            </button>
+          )}
         </div>
 
         {/* Equation */}
@@ -127,9 +177,6 @@ export default function ArithPage() {
 
         {/* Results */}
         <div className="border-t border-white/10 pt-6">
-          <div className="text-[10px] uppercase tracking-widest text-muted font-mono mb-3">
-            nearest in {ARITH_YEAR}
-          </div>
           {!corpus ? (
             <div className="flex items-center gap-2.5 text-muted text-sm font-mono">
               <span className="flex gap-1">
@@ -143,41 +190,77 @@ export default function ArithPage() {
             <div className="text-muted/60 text-sm font-mono italic">
               one or more terms aren&apos;t in the vocabulary (need freq ≥ 3,000 in any year)
             </div>
-          ) : !results ? (
+          ) : !answer ? (
             <div className="text-muted/60 text-sm font-mono italic">add at least one term</div>
           ) : (
-            <ol className="space-y-2.5">
-              {results.map((r, i) => {
-                const max = results[0]?.sim || 1;
-                const pct = Math.max(4, (r.sim / max) * 100);
-                return (
-                  <li key={r.word} className="group">
-                    <div className="flex items-baseline gap-3 sm:gap-4 font-mono">
-                      <span className="text-muted/40 text-xs tabular-nums w-6 text-right shrink-0">
-                        {i + 1}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => addAsTerm(r.word)}
-                        className="text-foreground text-lg hover:text-accent active:text-accent transition-colors -mx-1 px-1 py-0.5 rounded"
-                        title="add to terms"
-                      >
-                        {r.word}
-                      </button>
-                      <span className="ml-auto text-muted text-sm tabular-nums">
-                        {r.sim.toFixed(3)}
-                      </span>
-                    </div>
-                    <div className="mt-1.5 ml-9 h-[3px] rounded-full bg-white/[0.06] overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-accent to-accent-2 transition-all duration-500 group-hover:to-accent-3"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
+            <>
+              {/* the answer */}
+              <div className="text-[10px] uppercase tracking-widest text-muted font-mono mb-3">
+                nearest in {ARITH_YEAR}
+              </div>
+              <div className="flex items-baseline flex-wrap gap-x-4 gap-y-1 mb-9">
+                <span className="font-mono text-2xl sm:text-3xl text-muted leading-none">≈</span>
+                <AnimatePresence mode="wait">
+                  <motion.button
+                    key={answer.word}
+                    type="button"
+                    onClick={() => addAsTerm(answer.word)}
+                    initial={{ opacity: 0, y: 10, filter: "blur(6px)" }}
+                    animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                    exit={{ opacity: 0, y: -8, filter: "blur(6px)" }}
+                    transition={{ duration: 0.45, ease: "easeOut" }}
+                    className="font-display text-shimmer text-[clamp(40px,9vw,88px)] leading-none lowercase hover:opacity-90"
+                    title="add to terms"
+                  >
+                    {answer.word}
+                  </motion.button>
+                </AnimatePresence>
+                <span className="font-mono text-xs sm:text-sm text-muted tabular-nums self-end mb-1.5">
+                  cos {answer.sim.toFixed(3)}
+                </span>
+              </div>
+
+              {/* runners-up */}
+              {others.length > 0 && (
+                <>
+                  <div className="text-[10px] uppercase tracking-widest text-muted font-mono mb-3">
+                    others nearby
+                  </div>
+                  <ol className="space-y-2.5">
+                    {others.map((r, i) => {
+                      const max = answer.sim || 1;
+                      const pct = Math.max(4, (r.sim / max) * 100);
+                      return (
+                        <li key={r.word} className="group">
+                          <div className="flex items-baseline gap-3 sm:gap-4 font-mono">
+                            <span className="text-muted/40 text-xs tabular-nums w-6 text-right shrink-0">
+                              {i + 2}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => addAsTerm(r.word)}
+                              className="text-foreground text-lg hover:text-accent active:text-accent transition-colors -mx-1 px-1 py-0.5 rounded"
+                              title="add to terms"
+                            >
+                              {r.word}
+                            </button>
+                            <span className="ml-auto text-muted text-sm tabular-nums">
+                              {r.sim.toFixed(3)}
+                            </span>
+                          </div>
+                          <div className="mt-1.5 ml-9 h-[3px] rounded-full bg-white/[0.06] overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-accent to-accent-2 transition-all duration-500 group-hover:to-accent-3"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </>
+              )}
+            </>
           )}
         </div>
       </div>
