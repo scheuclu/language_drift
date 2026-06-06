@@ -21,10 +21,28 @@ const instrument = Instrument_Serif({
     style: ["normal", "italic"],
 });
 
+const TITLE = "WordDrift — watching English change, 2014–2025";
+const DESCRIPTION =
+    "Per-year Word2Vec embeddings trained on Common Crawl. Type a word and see how its neighbors shift over twelve years.";
+
 export const metadata: Metadata = {
-    title: "WordDrift — watching English change, 2014–2025",
-    description:
-        "Per-year Word2Vec embeddings trained on Common Crawl. Type a word and see how its neighbors shift over twelve years.",
+    // absolute base so the opengraph-image / twitter-image files resolve to
+    // full URLs in shared link previews
+    metadataBase: new URL("https://worddrift.xyz"),
+    title: TITLE,
+    description: DESCRIPTION,
+    openGraph: {
+        title: TITLE,
+        description: DESCRIPTION,
+        url: "https://worddrift.xyz",
+        siteName: "WordDrift",
+        type: "website",
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: TITLE,
+        description: DESCRIPTION,
+    },
 };
 
 export const viewport: Viewport = {
