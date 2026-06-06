@@ -77,6 +77,8 @@ export default function WordPage() {
   const [manifest, setManifest] = useState<Manifest | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "notfound">("loading");
   const [yi, setYi] = useState(0);
+  const [yearAIdx, setYearAIdx] = useState(0);
+  const [yearBIdx, setYearBIdx] = useState(0);
 
   useEffect(() => {
     loadManifest().then(setManifest).catch(() => {});
@@ -98,6 +100,8 @@ export default function WordPage() {
       }
       setData(d);
       setYi(d.y.length - 1); // open on the most recent year
+      setYearAIdx(0);
+      setYearBIdx(d.y.length - 1);
       setStatus("ready");
     });
     return () => {
@@ -145,16 +149,16 @@ export default function WordPage() {
     return { from: years[bi - 1], to: years[bi] };
   }, [drift, years]);
 
-  // first-year vs last-year neighbourhoods, with arrivals / departures
+  // custom A-year vs B-year neighbourhoods, with arrivals / departures
   const shift = useMemo(() => {
     if (!data || !data.n.length) return null;
     const TOP = 10;
-    const first = (data.n[0] ?? []).slice(0, TOP);
-    const last = (data.n[lastIdx] ?? []).slice(0, TOP);
-    const firstSet = new Set((data.n[0] ?? []).map(([w]) => w));
-    const lastSet = new Set((data.n[lastIdx] ?? []).map(([w]) => w));
+    const first = (data.n[yearAIdx] ?? []).slice(0, TOP);
+    const last = (data.n[yearBIdx] ?? []).slice(0, TOP);
+    const firstSet = new Set(first.map(([w]) => w));
+    const lastSet = new Set(last.map(([w]) => w));
     return { first, last, firstSet, lastSet };
-  }, [data, lastIdx]);
+  }, [data, yearAIdx, yearBIdx]);
 
   return (
     <main className="relative min-h-dvh w-full overflow-hidden bg-[#070707] pt-20 pb-20 px-5 sm:px-6 lg:px-10">
@@ -265,19 +269,43 @@ export default function WordPage() {
             {shift && (
               <>
                 <div className="hairline my-10" />
-                <div className="text-[10px] uppercase tracking-[0.22em] text-accent font-mono mb-1">
+                <div className="text-[10px] uppercase tracking-[0.22em] text-accent font-mono mb-2">
                   the company it keeps
                 </div>
-                <p className="text-foreground/60 text-sm mb-6 leading-relaxed">
-                  Nearest words in {years[0]} vs {years[lastIdx]}.{" "}
-                  <span className="text-accent">gold</span> = newly close,{" "}
-                  <span className="text-muted line-through decoration-muted/50">struck</span>{" "}
-                  = drifted away.
-                </p>
+                <div className="flex flex-wrap items-center gap-2 mb-6">
+                  <span className="text-foreground/60 text-sm">Nearest words in</span>
+                  <select
+                    value={yearAIdx}
+                    onChange={(e) => setYearAIdx(parseInt(e.target.value, 10))}
+                    className="bg-white/[0.06] border border-white/10 rounded px-2.5 py-1 text-xs font-mono text-foreground focus:outline-none focus:border-accent cursor-pointer"
+                  >
+                    {years.map((y, idx) => (
+                      <option key={y} value={idx} disabled={idx >= yearBIdx} className="bg-[#07080c] text-foreground">
+                        {y}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-foreground/60 text-sm">vs</span>
+                  <select
+                    value={yearBIdx}
+                    onChange={(e) => setYearBIdx(parseInt(e.target.value, 10))}
+                    className="bg-white/[0.06] border border-white/10 rounded px-2.5 py-1 text-xs font-mono text-foreground focus:outline-none focus:border-accent cursor-pointer"
+                  >
+                    {years.map((y, idx) => (
+                      <option key={y} value={idx} disabled={idx <= yearAIdx} className="bg-[#07080c] text-foreground">
+                        {y}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-foreground/45 text-[11px] font-mono ml-auto">
+                    <span className="text-accent font-semibold">gold</span> = newly close ·{" "}
+                    <span className="text-muted line-through decoration-muted/50 font-semibold">struck</span> = drifted away
+                  </span>
+                </div>
                 <div className="grid grid-cols-2 gap-5 sm:gap-8">
                   <div>
                     <div className="text-xs font-mono tabular-nums text-muted mb-3">
-                      {years[0]}
+                      {years[yearAIdx]}
                     </div>
                     <div className="flex flex-col items-start gap-2">
                       {shift.first.map(([w, sim]) => (
@@ -292,7 +320,7 @@ export default function WordPage() {
                   </div>
                   <div>
                     <div className="text-xs font-mono tabular-nums text-muted mb-3">
-                      {years[lastIdx]}
+                      {years[yearBIdx]}
                     </div>
                     <div className="flex flex-col items-start gap-2">
                       {shift.last.map(([w, sim]) => (

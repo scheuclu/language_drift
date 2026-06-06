@@ -11,7 +11,10 @@ import { usePathname } from "next/navigation";
 const LINKS = [
   { href: "/", label: "intro" },
   { href: "/space", label: "explore" },
+  { href: "/w", label: "lookup" },
+  { href: "/compare", label: "compare" },
   { href: "/arith", label: "arith" },
+  { href: "/llm", label: "llm" },
 ];
 
 export function Nav() {
@@ -27,17 +30,17 @@ export function Nav() {
           <span className="inline-block w-2 h-2 rounded-full bg-accent shadow-[0_0_8px_1px_rgba(244,184,96,0.7)]" />
           WordDrift
         </Link>
-        <ul className="flex items-center gap-0.5 sm:gap-2 lg:gap-3 text-sm">
+        <ul className="flex items-center gap-0.5 sm:gap-2 lg:gap-3 text-sm overflow-x-auto no-scrollbar shrink-0 max-w-[calc(100vw-140px)] sm:max-w-none scroll-smooth">
           {LINKS.map((l) => {
             const active =
               l.href === "/"
                 ? pathname === "/"
                 : pathname === l.href || pathname.startsWith(l.href + "/");
             return (
-              <li key={l.href}>
+              <li key={l.href} className="shrink-0">
                 <Link
                   href={l.href}
-                  className={`px-2.5 sm:px-3 py-1.5 rounded-full transition-colors font-mono text-xs uppercase tracking-wider ${
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-full transition-colors font-mono text-xs uppercase tracking-wider block ${
                     active
                       ? "text-foreground bg-white/[0.06]"
                       : "text-muted hover:text-foreground hover:bg-white/[0.03]"

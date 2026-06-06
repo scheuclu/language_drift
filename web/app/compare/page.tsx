@@ -150,6 +150,30 @@ export default function ComparePage() {
           together or drift apart as the language moves.
         </p>
 
+        {/* example suggestions */}
+        <div className="flex flex-wrap items-center gap-2 mb-8">
+          <span className="text-xs font-mono text-muted mr-1">examples:</span>
+          {[
+            { label: "remote & work", a: "remote", b: "work" },
+            { label: "social & distancing", a: "social", b: "distancing" },
+            { label: "ai & slop", a: "ai", b: "slop" },
+            { label: "crypto & scam", a: "crypto", b: "scam" },
+            { label: "zoom & meeting", a: "zoom", b: "meeting" },
+          ].map((ex) => (
+            <button
+              key={ex.label}
+              type="button"
+              onClick={() => {
+                setA(ex.a);
+                setB(ex.b);
+              }}
+              className="px-2.5 py-1 rounded-full text-xs font-mono border border-white/10 bg-white/[0.02] text-foreground/75 hover:text-foreground hover:border-accent/40 hover:bg-accent/[0.05] transition-colors"
+            >
+              {ex.label}
+            </button>
+          ))}
+        </div>
+
         {/* the two pickers */}
         <div className="flex flex-col sm:flex-row items-stretch gap-3">
           <Pole hex={A_HEX} word={a} words={words} onPick={(w) => setA(w)} />
