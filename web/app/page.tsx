@@ -407,6 +407,12 @@ export default function LandingPage() {
               </span>
             </Link>
             <Link
+              href="/w"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-full border border-white/15 text-foreground/75 hover:text-foreground hover:border-white/30 font-mono text-xs uppercase tracking-widest transition-colors"
+            >
+              Look up a word
+            </Link>
+            <Link
               href="/arith"
               className="inline-flex items-center gap-2 px-5 py-3 rounded-full border border-white/15 text-foreground/75 hover:text-foreground hover:border-white/30 font-mono text-xs uppercase tracking-widest transition-colors"
             >
