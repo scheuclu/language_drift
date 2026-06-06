@@ -10,12 +10,32 @@ Trains per-year Word2Vec (SGNS) embeddings on FineWeb (Common Crawl) slices from
 
 Python 3.13 managed with `uv`. All commands run via `uv run ...`. There is no test suite, linter, or formatter configured — don't invent one.
 
+### Pipeline & Training Commands
 ```bash
 uv sync                              # install deps
+
+# Current TWEC/compass training pipeline:
+uv run python scripts/twec_full.py [--smoke] [--device cuda|cpu]
+
+# Re-tune slice training (warm-start from existing compass):
+uv run python scripts/twec_tune_slices.py --epochs E --lr L --out models/DIR [--device cuda]
+
+# Legacy per-year training & post-hoc alignment:
 uv run python scripts/run_data_pipeline.py [--year Y | --all | --build-vocab | --encode]
 uv run python scripts/run_training.py     [--year Y | --all] [--device cuda|cpu]
 uv run python scripts/run_analysis.py     [--align | --drift | --all]
+
+# Streamlit data browser utility:
 uv run streamlit run app.py          # FineWeb sample browser
+```
+
+### Web Data Precomputation & Hosting
+```bash
+# Run full web precomputes and packing in order:
+./scripts/run_regen_500.sh
+
+# Upload packed artifacts to Vercel Blob:
+./scripts/upload_v4.sh [version_tag]
 ```
 
 ## Pipeline architecture
