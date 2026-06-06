@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { loadManifest } from "@/lib/data";
-import type { Manifest } from "@/lib/types";
+import { loadManifest, loadWord } from "@/lib/data";
+import type { Manifest, WordData } from "@/lib/types";
 import {
   loadVectors,
   yearVec,
@@ -59,6 +59,8 @@ export default function ComparePage() {
   const [b, setB] = useState("work");
   const [va, setVa] = useState<VState>(undefined);
   const [vb, setVb] = useState<VState>(undefined);
+  const [dataA, setDataA] = useState<WordData | null>(null);
+  const [dataB, setDataB] = useState<WordData | null>(null);
   const [yi, setYi] = useState(VECTOR_N_YEARS - 1);
   const hydrated = useRef(false);
 
@@ -95,9 +97,30 @@ export default function ComparePage() {
   }, [a]);
   useEffect(() => {
     let c = false;
-    setVb(undefined);
+    setDataB(null);
     loadVectors(b).then((v) => {
       if (!c) setVb(v);
+    });
+    return () => {
+      c = true;
+    };
+  }, [b]);
+
+  useEffect(() => {
+    let c = false;
+    setDataA(null);
+    loadWord(a).then((d) => {
+      if (!c) setDataA(d);
+    });
+    return () => {
+      c = true;
+    };
+  }, [a]);
+  useEffect(() => {
+    let c = false;
+    setDataB(null);
+    loadWord(b).then((d) => {
+      if (!c) setDataB(d);
     });
     return () => {
       c = true;
@@ -278,6 +301,54 @@ export default function ComparePage() {
               <span className="font-mono text-base tabular-nums text-foreground w-14 text-right shrink-0">
                 {years[yi]}
               </span>
+            </div>
+
+            {/* side-by-side neighbor comparison */}
+            <div className="mt-10 grid grid-cols-2 gap-5 sm:gap-8 border-t border-white/10 pt-8">
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-muted font-mono mb-3.5 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: A_HEX, boxShadow: `0 0 6px ${A_HEX}` }} />
+                  {a}&apos;s nearest neighbors ({years[yi]})
+                </div>
+                <div className="flex flex-col items-start gap-1.5">
+                  {dataA && dataA.n[yi] ? (
+                    dataA.n[yi].slice(0, 8).map(([w, sim]) => (
+                      <Link
+                        key={w}
+                        href={`/w/${encodeURIComponent(w)}`}
+                        className="inline-flex items-center gap-2 rounded-full border border-white/12 px-2.5 py-1 text-xs font-mono text-foreground/80 hover:text-accent hover:border-accent/40 bg-white/[0.01] hover:bg-accent/[0.04] transition-all duration-200"
+                      >
+                        <span className="truncate max-w-[110px] sm:max-w-none">{w}</span>
+                        <span className="text-[10px] tabular-nums text-muted/70">{sim.toFixed(2)}</span>
+                      </Link>
+                    ))
+                  ) : (
+                    <span className="text-muted/50 text-xs font-mono italic">loading neighbors…</span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-muted font-mono mb-3.5 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: B_HEX, boxShadow: `0 0 6px ${B_HEX}` }} />
+                  {b}&apos;s nearest neighbors ({years[yi]})
+                </div>
+                <div className="flex flex-col items-start gap-1.5">
+                  {dataB && dataB.n[yi] ? (
+                    dataB.n[yi].slice(0, 8).map(([w, sim]) => (
+                      <Link
+                        key={w}
+                        href={`/w/${encodeURIComponent(w)}`}
+                        className="inline-flex items-center gap-2 rounded-full border border-white/12 px-2.5 py-1 text-xs font-mono text-foreground/80 hover:text-accent hover:border-accent/40 bg-white/[0.01] hover:bg-accent/[0.04] transition-all duration-200"
+                      >
+                        <span className="truncate max-w-[110px] sm:max-w-none">{w}</span>
+                        <span className="text-[10px] tabular-nums text-muted/70">{sim.toFixed(2)}</span>
+                      </Link>
+                    ))
+                  ) : (
+                    <span className="text-muted/50 text-xs font-mono italic">loading neighbors…</span>
+                  )}
+                </div>
+              </div>
             </div>
           </motion.div>
         ) : null}

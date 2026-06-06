@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DATA_BASE } from "@/lib/data-source";
-import type { ParticleData } from "@/components/DistributionField";
+import { DistributionField, type ParticleData } from "@/components/DistributionField";
 import { FreqSpectrum, yearColor } from "@/components/FreqSpectrum";
 
 type Cat = "register" | "coinage" | "gambling" | "adult" | "tech" | "other";
@@ -75,6 +75,7 @@ export default function LLMPage() {
   const [pdata, setPdata] = useState<ParticleData | null>(null);
   const [pYear, setPYear] = useState(0);
   const [pPlaying, setPPlaying] = useState(false);
+  const [hoveredParticle, setHoveredParticle] = useState<{ w: string; lift: number; x: number; y: number } | null>(null);
   const pPlayRef = useRef<number | null>(null);
   const fieldRef = useRef<HTMLDivElement>(null);
   const autoPlayed = useRef(false);
@@ -223,10 +224,33 @@ export default function LLMPage() {
             <section className="mt-10">
               <div ref={fieldRef} className="relative rounded-2xl overflow-hidden border border-white/[0.06] bg-[#05060c] px-2 pt-2 pb-1">
                 {pdata ? (
-                  <FreqSpectrum data={pdata} yearIndex={pYear} />
+                  <div className="relative w-full h-full">
+                    <DistributionField
+                      data={pdata}
+                      yearIndex={pYear}
+                      onHover={setHoveredParticle}
+                    />
+                    {hoveredParticle && (
+                      <div
+                        className="absolute pointer-events-none z-30 px-2.5 py-1.5 rounded-lg border border-white/10 bg-black/90 backdrop-blur-sm shadow-xl text-left transition-all duration-75"
+                        style={{
+                          left: `${hoveredParticle.x}px`,
+                          top: `${hoveredParticle.y - 10}px`,
+                          transform: "translate(-50%, -100%)",
+                        }}
+                      >
+                        <div className="font-display text-sm text-foreground lowercase font-medium">
+                          {hoveredParticle.w}
+                        </div>
+                        <div className="font-mono text-[9px] text-muted whitespace-nowrap mt-0.5">
+                          {hoveredParticle.lift >= 0 ? "rose" : "fell"} {Math.abs(hoveredParticle.lift).toFixed(2)} log₂ ({Math.pow(2, hoveredParticle.lift).toFixed(2)}x)
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="h-[440px] grid place-items-center text-muted font-mono text-sm">
-                    loading 44,714 words…
+                    loading 34,250 words…
                   </div>
                 )}
 
