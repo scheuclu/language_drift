@@ -120,8 +120,19 @@ export default function TernaryPage() {
   }
 
   return (
-    <main className="h-screen pt-16 lg:pt-20 px-6 lg:px-10 pb-6 flex flex-col">
-      <header className="mb-3 flex items-baseline justify-between gap-4">
+    <main className="relative h-screen pt-16 lg:pt-20 px-6 lg:px-10 pb-6 flex flex-col">
+      {/* background atmosphere */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 overflow-hidden"
+      >
+        <div
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full blur-[140px]"
+          style={{ background: "radial-gradient(circle, rgba(139,108,255,0.06), rgba(244,184,96,0.03) 50%, transparent 70%)" }}
+        />
+      </div>
+
+      <header className="relative mb-3 flex items-baseline justify-between gap-4">
         <div>
           <div className="text-[10px] uppercase tracking-[0.18em] text-muted font-mono mb-1">
             ternary
