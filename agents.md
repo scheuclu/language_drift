@@ -109,15 +109,39 @@ language_drift/
     alignment.py                 # Orthogonal Procrustes (legacy)
     drift.py                     # Cosine distance + frequency metrics
 
-  scripts/                       # CLI entry points
-    run_data_pipeline.py         # --year 2014 | --all | --build-vocab | --encode
+  plans/                         # Retraining/tuning blueprints
+    three_epoch_retrain.md       # Plan to lower the drift noise floor
+
+  scripts/                       # Pipeline and helper scripts
+    # TWEC Training:
     twec_full.py                 # TWEC/compass trainer (current)
-    precompute_web_data.py       # emit per-word neighbors/vectors for web
-    precompute_llm.py            # emit frequency distribution data for /llm
-    precompute_tsne.py           # compute 2D UMAP for /space
-    pack_web_data.py             # pack shards -> binary blobs (+ index)
-    check_anchor_drift.py        # verify stability of known anchor words
-    quality_check.py             # verify embedding quality (king/queen tests)
+    twec_tune_slices.py          # Warm-start slice retrain/tuning from compass
+
+    # Web App Precomputation (Stage 3 -> 4):
+    precompute_web_data.py       # Emit per-word neighbors and metadata
+    precompute_vectors.py        # Emit per-word vector shards
+    precompute_arithmetic.py     # Precompute stacked corpus for `/arith` page
+    precompute_space_freq.py     # Compute per-word yearly frequencies for `/space`
+    precompute_tsne.py           # Compute UMAP coordinates for `/space`
+    precompute_llm.py            # Emit frequency distribution data for `/llm`
+    pack_web_data.py             # Pack shards -> binary blobs (`vecs.bin`, etc.)
+    run_regen_500.sh             # Master script running all precomputes + pack
+    upload_v4.sh                 # Script to upload packed data to Vercel Blob
+
+    # Quality & Analysis Utilities:
+    check_anchor_drift.py        # Verify stability of known anchor words
+    quality_check.py             # Verify embedding quality (king/queen tests)
+    find_ternary_defaults.py     # Find anchor word triples for ternary tool
+    debug_sampler.py             # Diagnostic tool for GPUSkipGramSampler
+    twec_prototype.py            # Prototype of TWEC on a 3-year subset
+
+    # Legacy Pipeline (Superseded by TWEC):
+    run_data_pipeline.py         # Data pipeline command-line driver
+    run_training.py              # Independent per-year embeddings trainer
+    run_analysis.py              # Procrustes alignment + drift analyzer
+    retrain_linear.py            # Independent retrain with linear LR schedule
+    train_all_years.sh           # Run independent training for all years
+    kick_off_3epoch_retrain.sh   # Run 3-epoch independent training for all years
 
   data/                          # gitignored
     tokens/                      # tokenized text + numpy ID arrays per year
@@ -130,6 +154,10 @@ language_drift/
     training_logs/               # loss/drift logs per run
 
   web/                           # Next.js app; data hosted on Vercel Blob
+    app/                         # Next.js page routes (note: `app/stories` is empty/unused)
+    components/                  # React UI components
+    lib/                         # Client data fetching and vector math helpers
+    scripts/                     # Screenshot/GIF capture scripts (capture_space_gif.mjs, etc.)
 ```
 
 ## Tech Stack
