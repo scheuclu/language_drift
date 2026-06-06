@@ -638,6 +638,27 @@ export function Space({
         ctx.beginPath();
         ctx.arc(x, y, 6 / tr.k, 0, Math.PI * 2);
         ctx.stroke();
+        // read-the-map: label the hovered star in place (interactive map only,
+        // so the cinematic landing player stays clean). Skip if it already
+        // carries a marked label at this index to avoid double-drawing.
+        if (interactive) {
+          const label = data.index.words[D.hoveredIdx];
+          const alreadyLabeled =
+            D.labels &&
+            D.markedIndices.some((mi, k) => mi === D.hoveredIdx && D.labels![k]);
+          if (label && !alreadyLabeled) {
+            const fs = 14 / tr.k;
+            const off = 10 / tr.k;
+            ctx.font = `600 ${fs}px ui-monospace, monospace`;
+            ctx.textBaseline = "middle";
+            const lx = x + off;
+            ctx.lineWidth = 3.5 / tr.k;
+            ctx.strokeStyle = "rgba(0,0,0,0.92)";
+            ctx.strokeText(label, lx, y);
+            ctx.fillStyle = "rgba(255,255,255,0.98)";
+            ctx.fillText(label, lx, y);
+          }
+        }
       }
 
       raf = requestAnimationFrame(frame);
@@ -674,7 +695,11 @@ export function Space({
   return (
     <div
       ref={overlayRef}
-      className={`absolute inset-0 ${interactive ? "cursor-grab active:cursor-grabbing touch-none" : ""}`}
+      className={`absolute inset-0 ${
+        interactive
+          ? `${hoveredIdx !== null ? "cursor-pointer" : "cursor-grab"} active:cursor-grabbing touch-none`
+          : ""
+      }`}
       onMouseMove={(e) => onHover(pick(e.clientX, e.clientY))}
       onMouseLeave={() => onHover(null)}
       onClick={(e) => {
