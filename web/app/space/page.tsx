@@ -136,7 +136,10 @@ export default function SpacePage() {
   const [axisAWord, setAxisAWord] = useState("science");
   const [axisBWord, setAxisBWord] = useState("music");
   const [sheetOpen, setSheetOpen] = useState(false); // mobile control sheet
+  const [copied, setCopied] = useState(false); // "copy link" feedback
   const playRef = useRef<number | null>(null);
+  const hydrated = useRef(false); // guards URL-write until initial parse is done
+  const desiredYear = useRef<number | null>(null); // year from URL, applied once data loads
 
   useEffect(() => {
     loadManifest().then(setManifest).catch((e) => setError(String(e)));
@@ -145,6 +148,36 @@ export default function SpacePage() {
       else setData(d);
     });
   }, []);
+
+  // Hydrate from a shareable URL: ?mark=a,b,c&y=2025&color=axis&a=word&b=word
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const mark = sp.get("mark");
+    if (mark) {
+      const ws = mark
+        .split(",")
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean);
+      if (ws.length) setMarked(ws);
+    }
+    const color = sp.get("color");
+    if (color === "off" || color === "axis" || color === "movement") setColorMode(color);
+    const a = sp.get("a");
+    if (a) setAxisAWord(a.toLowerCase());
+    const b = sp.get("b");
+    if (b) setAxisBWord(b.toLowerCase());
+    const y = sp.get("y");
+    if (y) desiredYear.current = parseInt(y, 10);
+    hydrated.current = true;
+  }, []);
+
+  // Apply the URL's year once data (and thus the year list) is available.
+  useEffect(() => {
+    if (!data || desiredYear.current == null) return;
+    const yi = data.index.years.indexOf(desiredYear.current);
+    if (yi >= 0) setYearIndex(yi);
+    desiredYear.current = null;
+  }, [data]);
 
   const driftByWord = useMemo(() => {
     const m = new Map<string, number>();
@@ -297,6 +330,21 @@ export default function SpacePage() {
   const hoveredWord = data && hoveredIdx !== null ? data.index.words[hoveredIdx] : null;
   const hoveredDrift = hoveredWord ? driftByWord.get(hoveredWord) : undefined;
   const nWords = data?.index.n_words ?? 0;
+
+  // Keep the address bar in sync so any view is copy-pasteable / shareable.
+  useEffect(() => {
+    if (!hydrated.current) return;
+    const sp = new URLSearchParams();
+    if (marked.length) sp.set("mark", marked.join(","));
+    if (currentYear !== undefined) sp.set("y", String(currentYear));
+    if (colorMode !== "off") sp.set("color", colorMode);
+    if (colorMode === "axis") {
+      sp.set("a", axisAWord);
+      sp.set("b", axisBWord);
+    }
+    const qs = sp.toString();
+    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+  }, [marked, currentYear, colorMode, axisAWord, axisBWord]);
 
   return (
     <main className="h-dvh w-full overflow-hidden relative bg-[#070707]">
@@ -472,6 +520,34 @@ export default function SpacePage() {
           <span className="font-mono text-base tabular-nums text-foreground w-14 text-right shrink-0">
             {currentYear}
           </span>
+          <span className="w-px h-5 bg-white/10 shrink-0" />
+          <button
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(window.location.href);
+                setCopied(true);
+                window.setTimeout(() => setCopied(false), 1500);
+              } catch {
+                /* clipboard blocked — the address bar already reflects the view */
+              }
+            }}
+            className={`shrink-0 grid place-items-center w-8 h-8 rounded-md transition-colors ${
+              copied ? "text-accent" : "text-foreground/70 hover:text-accent hover:bg-white/[0.06]"
+            }`}
+            title="copy a link to this exact view"
+            aria-label="copy link to this view"
+          >
+            {copied ? (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <path d="M5 12l4.5 4.5L19 7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            ) : (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <path d="M9 13a4 4 0 0 0 5.7.4l3-3a4 4 0 0 0-5.7-5.7l-1.2 1.1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M15 11a4 4 0 0 0-5.7-.4l-3 3a4 4 0 0 0 5.7 5.7l1.2-1.1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </button>
         </div>
       )}
 

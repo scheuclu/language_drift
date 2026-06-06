@@ -343,13 +343,13 @@ export default function WordPage() {
               </div>
             )}
 
-            {/* back to the map */}
+            {/* back to the map, with this word pre-marked */}
             <div className="mt-12">
               <Link
-                href="/space"
+                href={`/space?mark=${encodeURIComponent(data.w)}&y=${years[lastIdx]}`}
                 className="inline-flex items-center gap-2 text-sm font-mono text-foreground/70 hover:text-accent transition-colors"
               >
-                see the full map →
+                see {data.w} on the full map →
               </Link>
             </div>
           </>
