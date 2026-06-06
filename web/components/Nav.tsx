@@ -3,11 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// NOTE: nav-hidden routes (still resolve by direct URL, just not linked):
-//  - /llm: hidden in prod — not good enough yet; an improved version is in
-//    progress on the `feature/llm-drama` branch. Re-add when it ships.
-//  - /gallery, /ternary: candidates for deletion (gallery routes into the
-//    removed /explore view); /explore is deep-link-only. See CLAUDE.md.
 const LINKS = [
   { href: "/", label: "intro" },
   { href: "/space", label: "explore" },
