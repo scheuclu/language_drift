@@ -2,12 +2,14 @@
 
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { loadManifest } from "@/lib/data";
 import { loadSpace, type SpaceData } from "@/lib/space";
 import { STORIES } from "@/lib/stories";
 import type { Manifest } from "@/lib/types";
 import type { RGB } from "@/components/Space";
+import Link from "next/link";
 
 const MARK_PALETTE = [
   "#ffd45d",
@@ -114,7 +116,9 @@ const Space = dynamic(
 
 const PLAY_MS_PER_YEAR = 900;
 
-export default function SpacePage() {
+function SpacePageInner() {
+  const searchParams = useSearchParams();
+  const queryWord = searchParams.get("w");
   const [manifest, setManifest] = useState<Manifest | null>(null);
   const [data, setData] = useState<SpaceData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -135,6 +139,8 @@ export default function SpacePage() {
   const [axisAWord, setAxisAWord] = useState("science");
   const [axisBWord, setAxisBWord] = useState("music");
   const [sheetOpen, setSheetOpen] = useState(false); // mobile control sheet
+  const [flyToIdx, setFlyToIdx] = useState<number | null>(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const playRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -156,6 +162,17 @@ export default function SpacePage() {
     if (data) data.index.words.forEach((w, i) => m.set(w, i));
     return m;
   }, [data]);
+
+  // Load and fly to word from query parameters on initialization
+  useEffect(() => {
+    if (queryWord && data) {
+      const idx = wordToIdx.get(queryWord);
+      if (idx !== undefined) {
+        setMarked((prev) => (prev.includes(queryWord) ? prev : [...prev, queryWord]));
+        setTimeout(() => setFlyToIdx(idx), 350);
+      }
+    }
+  }, [queryWord, data, wordToIdx]);
 
   const { markedIndices, markedColors, markedHex, markedVisible } = useMemo(() => {
     const ids: number[] = [];
@@ -257,6 +274,10 @@ export default function SpacePage() {
 
   const addMark = (w: string) => {
     setMarked((prev) => (prev.includes(w) ? prev : [...prev, w]));
+    const idx = wordToIdx.get(w);
+    if (idx !== undefined) {
+      setFlyToIdx(idx);
+    }
     setSearchQ("");
   };
 
@@ -269,6 +290,21 @@ export default function SpacePage() {
     if (yi >= 0) {
       setPlaying(false);
       setYearIndex(yi);
+    }
+    // Centering visual coordinates of the story's main word
+    const heroWord = s.words.find((sw) => sw.role === "hero")?.w || s.words[0]?.w;
+    if (heroWord) {
+      const idx = wordToIdx.get(heroWord);
+      if (idx !== undefined) {
+        setTimeout(() => setFlyToIdx(idx), 100);
+      }
+    }
+  };
+
+  const handleWordClick = (w: string) => {
+    const idx = wordToIdx.get(w);
+    if (idx !== undefined) {
+      setFlyToIdx(idx);
     }
   };
 
@@ -299,7 +335,10 @@ export default function SpacePage() {
 
   return (
     <main className="h-dvh w-full overflow-hidden relative bg-[#070707]">
-      <div className="absolute inset-0">
+      <div 
+        className="absolute inset-0"
+        onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
+      >
         {data && manifest ? (
           <Space
             data={data}
@@ -314,6 +353,7 @@ export default function SpacePage() {
             labels={spaceLabels}
             axisColor={axisColor}
             movement={movement}
+            flyToIdx={flyToIdx}
           />
         ) : (
           <div className="absolute inset-0 grid place-items-center">
@@ -414,6 +454,7 @@ export default function SpacePage() {
           hex={markedHex}
           onUnmark={onUnmark}
           onHoverChip={setHoveredChip}
+          onWordClick={handleWordClick}
           className="max-h-[58vh] overflow-y-auto scrollbar-thin pr-1"
         />
       </div>
@@ -440,10 +481,20 @@ export default function SpacePage() {
       )}
 
       {hoveredWord && (
-        <div className="absolute bottom-28 left-1/2 -translate-x-1/2 pointer-events-none backdrop-blur-md bg-black/55 border border-white/10 rounded-lg px-4 py-2 text-sm font-mono">
-          <span className="text-foreground">{hoveredWord}</span>
+        <div
+          className="absolute pointer-events-none backdrop-blur-md bg-black/75 border border-white/15 rounded-lg px-3 py-1.5 text-xs font-mono shadow-xl z-50 flex items-center gap-2"
+          style={{
+            left: mousePos.x,
+            top: mousePos.y - 35,
+            transform: "translate(-50%, -50%)",
+          }}
+        >
+          <span className="text-accent font-semibold">{hoveredWord}</span>
           {hoveredDrift !== undefined && (
-            <span className="text-muted ml-3">drift {hoveredDrift.toFixed(2)}</span>
+            <>
+              <span className="w-1 h-1 rounded-full bg-white/20" />
+              <span className="text-foreground/70">drift {hoveredDrift.toFixed(2)}</span>
+            </>
           )}
         </div>
       )}
@@ -552,6 +603,7 @@ export default function SpacePage() {
                   words={markedVisible}
                   hex={markedHex}
                   onUnmark={onUnmark}
+                  onWordClick={handleWordClick}
                 />
               </div>
             </motion.div>
@@ -621,12 +673,14 @@ function MarkedList({
   hex,
   onUnmark,
   onHoverChip,
+  onWordClick,
   className,
 }: {
   words: string[];
   hex: string[];
   onUnmark: (w: string) => void;
   onHoverChip?: (i: number | null) => void;
+  onWordClick?: (w: string) => void;
   className?: string;
 }) {
   if (words.length === 0) {
@@ -643,16 +697,34 @@ function MarkedList({
           key={w}
           onMouseEnter={onHoverChip ? () => onHoverChip(i) : undefined}
           onMouseLeave={onHoverChip ? () => onHoverChip(null) : undefined}
-          className="group flex items-center gap-2 backdrop-blur-md bg-black/35 hover:bg-black/55 border border-white/10 rounded px-2 py-1.5 text-xs font-mono transition-colors"
+          className="group flex items-center gap-2 backdrop-blur-md bg-black/35 hover:bg-black/55 border border-white/10 rounded px-2.5 py-1.5 text-xs font-mono transition-colors"
         >
           <span
             className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-[0_0_8px_currentColor]"
             style={{ background: hex[i], color: hex[i] }}
           />
-          <span className="flex-1 text-foreground truncate">{w}</span>
+          <span
+            className={`flex-1 text-foreground truncate ${onWordClick ? "cursor-pointer hover:text-accent" : ""} transition-colors`}
+            onClick={onWordClick ? () => onWordClick(w) : undefined}
+            title={onWordClick ? "Click to center camera on word" : undefined}
+          >
+            {w}
+          </span>
+          {onWordClick && (
+            <Link
+              href={`/arith?w=${w}`}
+              title={`Use '${w}' in word math`}
+              className="text-muted hover:text-accent transition-colors p-0.5 opacity-0 group-hover:opacity-100 duration-150 flex shrink-0"
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <line x1="12" y1="5" x2="12" y2="19" />
+              </svg>
+            </Link>
+          )}
           <button
             onClick={() => onUnmark(w)}
-            className="text-muted hover:text-foreground transition-colors leading-none w-6 h-6 -my-1 grid place-items-center text-sm opacity-60 group-hover:opacity-100"
+            className="text-muted hover:text-foreground transition-colors leading-none w-6 h-6 -my-1 grid place-items-center text-sm opacity-60 group-hover:opacity-100 shrink-0"
             aria-label={`remove ${w}`}
           >
             ×
@@ -741,5 +813,25 @@ function ColourControls({
         </div>
       )}
     </>
+  );
+}
+
+export default function SpacePage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="h-dvh w-full overflow-hidden relative bg-[#070707] grid place-items-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="flex gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-accent-2 animate-pulse" style={{ animationDelay: "200ms" }} />
+              <span className="w-2 h-2 rounded-full bg-accent-3 animate-pulse" style={{ animationDelay: "400ms" }} />
+            </div>
+          </div>
+        </main>
+      }
+    >
+      <SpacePageInner />
+    </Suspense>
   );
 }
