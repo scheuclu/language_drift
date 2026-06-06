@@ -33,6 +33,31 @@ function hexToRgb(hex: string): RGB {
   return [((n >> 16) & 0xff) / 255, ((n >> 8) & 0xff) / 255, (n & 0xff) / 255];
 }
 
+function CountUp({ end, duration = 1800, prefix = "", suffix = "" }: { end: number; duration?: number; prefix?: string; suffix?: string }) {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    let startTimestamp: number | null = null;
+    let cancelled = false;
+    const step = (timestamp: number) => {
+      if (cancelled) return;
+      if (!startTimestamp) startTimestamp = timestamp;
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      const easeProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+      setCount(Math.floor(easeProgress * end));
+      if (progress < 1) {
+        window.requestAnimationFrame(step);
+      }
+    };
+    window.requestAnimationFrame(step);
+    return () => {
+      cancelled = true;
+    };
+  }, [end, duration]);
+
+  return <>{prefix}{count.toLocaleString()}{suffix}</>;
+}
+
 export default function LandingPage() {
   const [data, setData] = useState<SpaceData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -358,13 +383,13 @@ export default function LandingPage() {
           className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10 text-center"
         >
           {[
-            { n: "12", l: "years · 2014–2025" },
-            { n: data ? data.index.n_words.toLocaleString() : "52,894", l: "words mapped" },
-            { n: "300", l: "dimensions / word" },
-            { n: "~1B", l: "tokens trained / year" },
-          ].map((s) => (
+            { n: <CountUp end={12} duration={1200} />, l: "years · 2014–2025" },
+            { n: <CountUp end={data ? data.index.n_words : 52894} duration={1800} />, l: "words mapped" },
+            { n: <CountUp end={300} duration={1400} />, l: "dimensions / word" },
+            { n: <CountUp end={1} duration={1000} prefix="~" suffix="B" />, l: "tokens trained / year" },
+          ].map((s, idx) => (
             <motion.div
-              key={s.l}
+              key={idx}
               variants={{
                 hidden: { opacity: 0, y: 18 },
                 show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } },

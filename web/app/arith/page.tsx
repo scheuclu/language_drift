@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { loadArithCorpus, arithmeticTopK, type ArithCorpus, type Term } from "@/lib/arith";
 
 const DEFAULT_TERMS: Term[] = [
@@ -36,10 +38,18 @@ const EXAMPLES: { label: string; terms: Term[] }[] = [
 
 const ARITH_YEAR = 2025;
 
-export default function ArithPage() {
+function ArithPageInner() {
+  const searchParams = useSearchParams();
+  const w = searchParams.get("w");
   const [terms, setTerms] = useState<Term[]>(DEFAULT_TERMS);
   const [corpus, setCorpus] = useState<ArithCorpus | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (w) {
+      setTerms([{ sign: 1, word: w }]);
+    }
+  }, [w]);
 
   useEffect(() => {
     loadArithCorpus().then((c) => {
@@ -159,11 +169,18 @@ export default function ArithPage() {
                       <button
                         type="button"
                         onClick={() => addAsTerm(r.word)}
-                        className="text-foreground text-lg hover:text-accent active:text-accent transition-colors -mx-1 px-1 py-0.5 rounded"
+                        className="text-foreground text-lg hover:text-accent active:text-accent transition-colors -mx-1 px-1 py-0.5 rounded cursor-pointer"
                         title="add to terms"
                       >
                         {r.word}
                       </button>
+                      <Link
+                        href={`/space?w=${r.word}`}
+                        className="text-muted/50 hover:text-accent text-[11px] font-mono transition-colors opacity-0 group-hover:opacity-100 flex items-center ml-2 border border-white/10 hover:border-accent/40 rounded px-1.5 py-0.5"
+                        title={`View '${r.word}' on Galaxy Map`}
+                      >
+                        → map
+                      </Link>
                       <span className="ml-auto text-muted text-sm tabular-nums">
                         {r.sim.toFixed(3)}
                       </span>
@@ -356,5 +373,21 @@ function WordInput({
         </div>
       )}
     </div>
+  );
+}
+
+export default function ArithPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="relative min-h-dvh w-full overflow-hidden bg-[#070707] pt-20 pb-16 px-5 sm:px-6 lg:px-10">
+          <div className="relative max-w-4xl mx-auto flex items-center gap-2.5 text-muted text-sm font-mono">
+            loading math space…
+          </div>
+        </main>
+      }
+    >
+      <ArithPageInner />
+    </Suspense>
   );
 }

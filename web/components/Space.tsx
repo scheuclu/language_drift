@@ -37,6 +37,7 @@ type Props = {
   // Render-only modulation on top of the fit camera.
   cinematic?: boolean;
   progress?: number;
+  flyToIdx?: number | null;
 };
 
 const TWEEN_MS = 700;
@@ -128,6 +129,7 @@ export function Space({
   movement = null,
   cinematic = false,
   progress = 0,
+  flyToIdx = null,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -348,6 +350,32 @@ export function Space({
       camActive.current = true;
     }
   }, [fitIndices, data, interactive, fitMinSpan]);
+
+  // Fly-to animation for searched/selected words
+  const prevFlyTo = useRef<number | null>(null);
+  useEffect(() => {
+    if (flyToIdx === undefined || flyToIdx === null || !data) return;
+    if (flyToIdx === prevFlyTo.current) return;
+    prevFlyTo.current = flyToIdx;
+
+    const { w, h } = size.current;
+    const half = Math.min(w, h) * 0.5 * 0.96;
+    const coords = data.coords[yearIndex];
+    if (!coords) return;
+    
+    const x = coords[flyToIdx * 2];
+    const y = coords[flyToIdx * 2 + 1];
+
+    const targetK = 10;
+    const targetX = w / 2 - targetK * (w / 2 + x * half);
+    const targetY = h / 2 - targetK * (h / 2 + y * half);
+
+    const tr = transform.current;
+    camFrom.current = { k: tr.k, x: tr.x, y: tr.y };
+    camTo.current = { k: targetK, x: targetX, y: targetY };
+    camStart.current = performance.now();
+    camActive.current = true;
+  }, [flyToIdx, data, yearIndex]);
 
   // Render loop (mounted once).
   useEffect(() => {
@@ -581,6 +609,26 @@ export function Space({
             ctx.lineTo(cx + buf[s * 2] * half, cy + buf[s * 2 + 1] * half);
             ctx.stroke();
           }
+        }
+      }
+
+      // concentric ripple/beacon animation for marked points
+      {
+        const timeMs = performance.now();
+        const rippleDuration = 2200; // ms per pulse
+        const prog = (timeMs % rippleDuration) / rippleDuration;
+        const rippleAlpha = (1 - prog) * 0.75;
+        for (let i = 0; i < D.markedIndices.length; i++) {
+          const idx = D.markedIndices[i];
+          const col = D.markedColors[i] ?? [1, 1, 1];
+          const x = sx(idx), y = sy(idx);
+          const maxRippleR = (D.highlightedMarkedIdx === i ? 42 : 28) / tr.k;
+          const rippleR = maxRippleR * prog;
+          ctx.strokeStyle = rgbCss(col, rippleAlpha);
+          ctx.lineWidth = 1.8 / tr.k;
+          ctx.beginPath();
+          ctx.arc(x, y, rippleR, 0, Math.PI * 2);
+          ctx.stroke();
         }
       }
 
