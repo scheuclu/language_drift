@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { loadManifest } from "@/lib/data";
@@ -649,7 +650,13 @@ function MarkedList({
             className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-[0_0_8px_currentColor]"
             style={{ background: hex[i], color: hex[i] }}
           />
-          <span className="flex-1 text-foreground truncate">{w}</span>
+          <Link
+            href={`/w/${encodeURIComponent(w)}`}
+            className="flex-1 text-foreground truncate hover:text-accent transition-colors"
+            title={`open ${w} dossier`}
+          >
+            {w}
+          </Link>
           <button
             onClick={() => onUnmark(w)}
             className="text-muted hover:text-foreground transition-colors leading-none w-6 h-6 -my-1 grid place-items-center text-sm opacity-60 group-hover:opacity-100"
