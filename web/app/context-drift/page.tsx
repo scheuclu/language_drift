@@ -24,6 +24,15 @@ type Bounds = {
   maxY: number;
 };
 
+type Preset = {
+  word: string;
+  category: string;
+  phenomenon: string;
+  contextA: string;
+  contextB: string;
+  similarity: number;
+};
+
 const DEFAULT_WORD = "bank";
 const DEFAULT_CONTEXT_A = "He went to the bank to cash a check.";
 const DEFAULT_CONTEXT_B = "They sat on the grassy bank of the river.";
@@ -36,6 +45,57 @@ const STOP_WORDS = new Set([
   "it", "they", "we", "you", "i", "his", "her", "their", "our", "your", 
   "my", "this", "that", "these", "those", "there", "here"
 ]);
+
+const PRESETS: Preset[] = [
+  {
+    word: "crane",
+    category: "machine vs. bird",
+    phenomenon: "Homograph",
+    contextA: "The heavy steel crane lifted the shipping container onto the cargo ship.",
+    contextB: "A tall white crane stood gracefully in the shallow water of the marsh.",
+    similarity: 0.4215
+  },
+  {
+    word: "date",
+    category: "romance vs. fruit",
+    phenomenon: "Homonymy",
+    contextA: "We need to schedule a romantic date for next Friday evening.",
+    contextB: "She ordered a sweet date and a cup of mint tea after dinner.",
+    similarity: 0.3548
+  },
+  {
+    word: "apple",
+    category: "fruit vs. tech brand",
+    phenomenon: "Capitalization/Brand",
+    contextA: "He sliced a fresh green apple to eat with peanut butter.",
+    contextB: "Apple announced a new operating system at their conference.",
+    similarity: 0.5182
+  },
+  {
+    word: "python",
+    category: "software vs. reptile",
+    phenomenon: "Metaphor/Jargon",
+    contextA: "I wrote a script in Python to automate my data analysis pipeline.",
+    contextB: "A large reticulated python wrapped itself around the tree branch.",
+    similarity: 0.4491
+  },
+  {
+    word: "run",
+    category: "cardio vs. execution",
+    phenomenon: "Noun vs. Verb",
+    contextA: "She went for a quick five mile run in the morning.",
+    contextB: "The server will run the database backup script at midnight.",
+    similarity: 0.6359
+  },
+  {
+    word: "light",
+    category: "weight vs. luminance",
+    phenomenon: "Polysemy",
+    contextA: "The sun emits bright light that warms our entire planet.",
+    contextB: "The suitcase was surprisingly light and easy to carry.",
+    similarity: 0.4812
+  }
+];
 
 // Helper to align tokens to space-split words
 function getWordIds(words: string[], tokens: string[]): number[] {
@@ -398,6 +458,13 @@ function ContextDriftInner() {
     runClientInference(word, contextA, contextB);
   };
 
+  const handleSelectPreset = (p: Preset) => {
+    setWord(p.word);
+    setContextA(p.contextA);
+    setContextB(p.contextB);
+    runClientInference(p.word, p.contextA, p.contextB);
+  };
+
   // Compute SVG plot viewport scaling
   const plotData = useMemo(() => {
     if (!result || result.points.length === 0) return null;
@@ -464,18 +531,18 @@ function ContextDriftInner() {
         }}
       />
 
-      <div className="relative max-w-5xl mx-auto">
-        <div className="text-[10px] uppercase tracking-[0.22em] text-accent font-mono mb-2">
-          contextual embeddings
+      <div className="relative max-w-5xl mx-auto space-y-12">
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.22em] text-accent font-mono mb-2">
+            contextual embeddings
+          </div>
+          <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl leading-tight sm:leading-none mb-3">
+            Type-level Context Drift.
+          </h1>
+          <p className="text-foreground/60 text-sm sm:text-base max-w-2xl leading-relaxed">
+            BERT-family embeddings are contextual. Enter a target word and two sentences below, or select an insight preset from the gallery below to explore how polysemy, homonymy, and syntax shift vectors in high-dimensional space.
+          </p>
         </div>
-        <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl leading-tight sm:leading-none mb-3">
-          Type-level Context Drift.
-        </h1>
-        <p className="text-foreground/60 text-sm sm:text-base max-w-2xl leading-relaxed mb-8">
-          BERT embeddings are contextual. Enter a target word and two sentences below. We will
-          extract the word&apos;s hidden state vectors from all-MiniLM-L6-v2 in the browser, compute their semantic drift,
-          and project them next to their sentence key concepts using WebAssembly-based PCA.
-        </p>
 
         {!modelReady ? (
           <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md p-8 flex flex-col items-center justify-center min-h-[350px]">
@@ -498,238 +565,299 @@ function ContextDriftInner() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-8">
-            {/* Controls Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-[10px] uppercase tracking-wider text-muted font-mono block">
-                  Target Word
-                </label>
-                <input
-                  type="text"
-                  value={word}
-                  onChange={(e) => setWord(e.target.value)}
-                  required
-                  className="w-full bg-white/[0.03] border border-white/10 focus:border-accent rounded px-3 py-2 text-sm font-mono text-foreground outline-none transition-colors"
-                  placeholder="e.g. bank"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] uppercase tracking-wider text-muted font-mono block">
-                  Sentence Context A
-                </label>
-                <textarea
-                  value={contextA}
-                  onChange={(e) => setContextA(e.target.value)}
-                  required
-                  rows={3}
-                  className="w-full bg-white/[0.03] border border-white/10 focus:border-accent rounded px-3 py-2 text-sm text-foreground outline-none transition-colors resize-none"
-                  placeholder="Sentence using the target word..."
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] uppercase tracking-wider text-muted font-mono block">
-                  Sentence Context B
-                </label>
-                <textarea
-                  value={contextB}
-                  onChange={(e) => setContextB(e.target.value)}
-                  required
-                  rows={3}
-                  className="w-full bg-white/[0.03] border border-white/10 focus:border-accent rounded px-3 py-2 text-sm text-foreground outline-none transition-colors resize-none"
-                  placeholder="Another sentence using the target word in a different context..."
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full btn-glow justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? "running inference…" : "calculate drift"}
-              </button>
-
-              {error && (
-                <div className="rounded-xl border border-red-500/20 bg-red-950/20 p-3 text-xs font-mono text-red-400 leading-relaxed">
-                  {error}
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-8">
+              {/* Controls Form */}
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase tracking-wider text-muted font-mono block">
+                    Target Word
+                  </label>
+                  <input
+                    type="text"
+                    value={word}
+                    onChange={(e) => setWord(e.target.value)}
+                    required
+                    className="w-full bg-white/[0.03] border border-white/10 focus:border-accent rounded px-3 py-2 text-sm font-mono text-foreground outline-none transition-colors"
+                    placeholder="e.g. bank"
+                  />
                 </div>
-              )}
-            </form>
 
-            {/* Visualization Canvas */}
-            <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md overflow-hidden flex flex-col min-h-[480px]">
-              {loading ? (
-                <div className="flex-1 grid place-items-center">
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="flex gap-1">
-                      <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-                      <span className="w-2 h-2 rounded-full bg-accent-2 animate-pulse" style={{ animationDelay: "200ms" }} />
-                      <span className="w-2 h-2 rounded-full bg-accent-3 animate-pulse" style={{ animationDelay: "400ms" }} />
-                    </div>
-                    <span className="text-muted font-mono text-[11px] uppercase tracking-wider">
-                      Running local ONNX model…
-                    </span>
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase tracking-wider text-muted font-mono block">
+                    Sentence Context A
+                  </label>
+                  <textarea
+                    value={contextA}
+                    onChange={(e) => setContextA(e.target.value)}
+                    required
+                    rows={3}
+                    className="w-full bg-white/[0.03] border border-white/10 focus:border-accent rounded px-3 py-2 text-sm text-foreground outline-none transition-colors resize-none"
+                    placeholder="Sentence using the target word..."
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase tracking-wider text-muted font-mono block">
+                    Sentence Context B
+                  </label>
+                  <textarea
+                    value={contextB}
+                    onChange={(e) => setContextB(e.target.value)}
+                    required
+                    rows={3}
+                    className="w-full bg-white/[0.03] border border-white/10 focus:border-accent rounded px-3 py-2 text-sm text-foreground outline-none transition-colors resize-none"
+                    placeholder="Another sentence using the target word in a different context..."
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full btn-glow justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? "running inference…" : "calculate drift"}
+                </button>
+
+                {error && (
+                  <div className="rounded-xl border border-red-500/20 bg-red-950/20 p-3 text-xs font-mono text-red-400 leading-relaxed">
+                    {error}
                   </div>
-                </div>
-              ) : result && plotData && targetPoints ? (
-                <div className="p-5 flex-1 flex flex-col">
-                  {/* Stats Panel */}
-                  <div className="grid grid-cols-2 gap-4 mb-5 border-b border-white/5 pb-4">
-                    <div className="rounded-xl bg-white/[0.02] border border-white/[0.05] p-3 text-center">
-                      <div className="text-[10px] uppercase tracking-wider text-muted font-mono mb-1">
-                        Cosine Similarity
+                )}
+              </form>
+
+              {/* Visualization Canvas */}
+              <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md overflow-hidden flex flex-col min-h-[480px]">
+                {loading ? (
+                  <div className="flex-1 grid place-items-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="flex gap-1">
+                        <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+                        <span className="w-2 h-2 rounded-full bg-accent-2 animate-pulse" style={{ animationDelay: "200ms" }} />
+                        <span className="w-2 h-2 rounded-full bg-accent-3 animate-pulse" style={{ animationDelay: "400ms" }} />
                       </div>
-                      <div className="text-2xl font-mono text-accent leading-none">
-                        {result.similarity.toFixed(4)}
-                      </div>
-                    </div>
-                    <div className="rounded-xl bg-white/[0.02] border border-white/[0.05] p-3 text-center">
-                      <div className="text-[10px] uppercase tracking-wider text-muted font-mono mb-1">
-                        Cosine Distance (Drift)
-                      </div>
-                      <div className="text-2xl font-mono text-accent-3 leading-none">
-                        {result.distance.toFixed(4)}
-                      </div>
+                      <span className="text-muted font-mono text-[11px] uppercase tracking-wider">
+                        Running local ONNX model…
+                      </span>
                     </div>
                   </div>
+                ) : result && plotData && targetPoints ? (
+                  <div className="p-5 flex-1 flex flex-col">
+                    {/* Stats Panel */}
+                    <div className="grid grid-cols-2 gap-4 mb-5 border-b border-white/5 pb-4">
+                      <div className="rounded-xl bg-white/[0.02] border border-white/[0.05] p-3 text-center">
+                        <div className="text-[10px] uppercase tracking-wider text-muted font-mono mb-1">
+                          Cosine Similarity
+                        </div>
+                        <div className="text-2xl font-mono text-accent leading-none">
+                          {result.similarity.toFixed(4)}
+                        </div>
+                      </div>
+                      <div className="rounded-xl bg-white/[0.02] border border-white/[0.05] p-3 text-center">
+                        <div className="text-[10px] uppercase tracking-wider text-muted font-mono mb-1">
+                          Cosine Distance (Drift)
+                        </div>
+                        <div className="text-2xl font-mono text-accent-3 leading-none">
+                          {result.distance.toFixed(4)}
+                        </div>
+                      </div>
+                    </div>
 
-                  {/* SVG Graph Plot */}
-                  <div className="relative flex-1 bg-black/60 rounded-xl border border-white/5 overflow-hidden min-h-[350px]">
-                    <svg
-                      viewBox="0 0 600 450"
-                      className="w-full h-full select-none"
-                      preserveAspectRatio="xMidYMid meet"
-                    >
-                      {/* Gridlines */}
-                      <line x1={50} x2={550} y1={225} y2={225} stroke="rgba(255,255,255,0.03)" strokeWidth={1} />
-                      <line x1={300} x2={300} y1={50} y2={400} stroke="rgba(255,255,255,0.03)" strokeWidth={1} />
+                    {/* SVG Graph Plot */}
+                    <div className="relative flex-1 bg-black/60 rounded-xl border border-white/5 overflow-hidden min-h-[350px]">
+                      <svg
+                        viewBox="0 0 600 450"
+                        className="w-full h-full select-none"
+                        preserveAspectRatio="xMidYMid meet"
+                      >
+                        {/* Gridlines */}
+                        <line x1={50} x2={550} y1={225} y2={225} stroke="rgba(255,255,255,0.03)" strokeWidth={1} />
+                        <line x1={300} x2={300} y1={50} y2={400} stroke="rgba(255,255,255,0.03)" strokeWidth={1} />
 
-                      {/* Vector line representing drift between word context A and B */}
-                      <motion.line
-                        x1={targetPoints.a.x}
-                        y1={targetPoints.a.y}
-                        x2={targetPoints.b.x}
-                        y2={targetPoints.b.y}
-                        stroke="url(#driftGradient)"
-                        strokeWidth={2.5}
-                        strokeDasharray="4 4"
-                        initial={{ pathLength: 0 }}
-                        animate={{ pathLength: 1 }}
-                        transition={{ duration: 1.2, ease: "easeInOut" }}
-                      />
-
-                      {/* Define Gradient */}
-                      <defs>
-                        <linearGradient id="driftGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                          <stop offset="0%" stopColor="#5dd5e8" />
-                          <stop offset="100%" stopColor="#ff5da2" />
-                        </linearGradient>
-                      </defs>
-
-                      {/* Plot background context words */}
-                      {plotData.points.map((p) => {
-                        if (p.source === "target_a" || p.source === "target_b") return null;
-                        const { x, y } = scaleCoord(p.x, p.y, plotData.bounds);
-                        const isA = p.source === "context_a";
-                        return (
-                          <g key={p.label + p.source}>
-                            <circle
-                              cx={x}
-                              cy={y}
-                              r={4.5}
-                              fill={isA ? "#5dd5e8" : "#ff5da2"}
-                              opacity={0.3}
-                            />
-                            <text
-                              x={x}
-                              y={y - 8}
-                              fontSize={10}
-                              fontFamily="monospace"
-                              fill="rgba(255,255,255,0.55)"
-                              textAnchor="middle"
-                            >
-                              {p.label}
-                            </text>
-                          </g>
-                        );
-                      })}
-
-                      {/* Plot target words (large glowing anchors) */}
-                      {/* Word Context A */}
-                      <g>
-                        <circle
-                          cx={targetPoints.a.x}
-                          cy={targetPoints.a.y}
-                          r={12}
-                          fill="#5dd5e8"
-                          opacity={0.25}
-                          className="animate-pulse"
+                        {/* Vector line representing drift between word context A and B */}
+                        <motion.line
+                          x1={targetPoints.a.x}
+                          y1={targetPoints.a.y}
+                          x2={targetPoints.b.x}
+                          y2={targetPoints.b.y}
+                          stroke="url(#driftGradient)"
+                          strokeWidth={2.5}
+                          strokeDasharray="4 4"
+                          initial={{ pathLength: 0 }}
+                          animate={{ pathLength: 1 }}
+                          transition={{ duration: 1.2, ease: "easeInOut" }}
                         />
-                        <circle
-                          cx={targetPoints.a.x}
-                          cy={targetPoints.a.y}
-                          r={6}
-                          fill="#5dd5e8"
-                          stroke="#070707"
-                          strokeWidth={1.5}
-                        />
-                        <text
-                          x={targetPoints.a.x}
-                          y={targetPoints.a.y - 15}
-                          fontSize={12}
-                          fontFamily="monospace"
-                          fontWeight="bold"
-                          fill="#5dd5e8"
-                          textAnchor="middle"
-                          style={{ textShadow: "0 0 10px rgba(93,213,232,0.6)" }}
-                        >
-                          {targetPoints.rawA.label}
-                        </text>
-                      </g>
 
-                      {/* Word Context B */}
-                      <g>
-                        <circle
-                          cx={targetPoints.b.x}
-                          cy={targetPoints.b.y}
-                          r={12}
-                          fill="#ff5da2"
-                          opacity={0.25}
-                          className="animate-pulse"
-                        />
-                        <circle
-                          cx={targetPoints.b.x}
-                          cy={targetPoints.b.y}
-                          r={6}
-                          fill="#ff5da2"
-                          stroke="#070707"
-                          strokeWidth={1.5}
-                        />
-                        <text
-                          x={targetPoints.b.x}
-                          y={targetPoints.b.y - 15}
-                          fontSize={12}
-                          fontFamily="monospace"
-                          fontWeight="bold"
-                          fill="#ff5da2"
-                          textAnchor="middle"
-                          style={{ textShadow: "0 0 10px rgba(255,93,162,0.6)" }}
-                        >
-                          {targetPoints.rawB.label}
-                        </text>
-                      </g>
-                    </svg>
+                        {/* Define Gradient */}
+                        <defs>
+                          <linearGradient id="driftGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#5dd5e8" />
+                            <stop offset="100%" stopColor="#ff5da2" />
+                          </linearGradient>
+                        </defs>
+
+                        {/* Plot background context words */}
+                        {plotData.points.map((p) => {
+                          if (p.source === "target_a" || p.source === "target_b") return null;
+                          const { x, y } = scaleCoord(p.x, p.y, plotData.bounds);
+                          const isA = p.source === "context_a";
+                          return (
+                            <g key={p.label + p.source}>
+                              <circle
+                                cx={x}
+                                cy={y}
+                                r={4.5}
+                                fill={isA ? "#5dd5e8" : "#ff5da2"}
+                                opacity={0.3}
+                              />
+                              <text
+                                x={x}
+                                y={y - 8}
+                                fontSize={10}
+                                fontFamily="monospace"
+                                fill="rgba(255,255,255,0.55)"
+                                textAnchor="middle"
+                              >
+                                {p.label}
+                              </text>
+                            </g>
+                          );
+                        })}
+
+                        {/* Plot target words (large glowing anchors) */}
+                        {/* Word Context A */}
+                        <g>
+                          <circle
+                            cx={targetPoints.a.x}
+                            cy={targetPoints.a.y}
+                            r={12}
+                            fill="#5dd5e8"
+                            opacity={0.25}
+                            className="animate-pulse"
+                          />
+                          <circle
+                            cx={targetPoints.a.x}
+                            cy={targetPoints.a.y}
+                            r={6}
+                            fill="#5dd5e8"
+                            stroke="#070707"
+                            strokeWidth={1.5}
+                          />
+                          <text
+                            x={targetPoints.a.x}
+                            y={targetPoints.a.y - 15}
+                            fontSize={12}
+                            fontFamily="monospace"
+                            fontWeight="bold"
+                            fill="#5dd5e8"
+                            textAnchor="middle"
+                            style={{ textShadow: "0 0 10px rgba(93,213,232,0.6)" }}
+                          >
+                            {targetPoints.rawA.label}
+                          </text>
+                        </g>
+
+                        {/* Word Context B */}
+                        <g>
+                          <circle
+                            cx={targetPoints.b.x}
+                            cy={targetPoints.b.y}
+                            r={12}
+                            fill="#ff5da2"
+                            opacity={0.25}
+                            className="animate-pulse"
+                          />
+                          <circle
+                            cx={targetPoints.b.x}
+                            cy={targetPoints.b.y}
+                            r={6}
+                            fill="#ff5da2"
+                            stroke="#070707"
+                            strokeWidth={1.5}
+                          />
+                          <text
+                            x={targetPoints.b.x}
+                            y={targetPoints.b.y - 15}
+                            fontSize={12}
+                            fontFamily="monospace"
+                            fontWeight="bold"
+                            fill="#ff5da2"
+                            textAnchor="middle"
+                            style={{ textShadow: "0 0 10px rgba(255,93,162,0.6)" }}
+                          >
+                            {targetPoints.rawB.label}
+                          </text>
+                        </g>
+                      </svg>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className="flex-1 grid place-items-center text-muted font-mono text-xs italic">
-                  Enter target word and sentences to run analysis.
-                </div>
-              )}
+                ) : (
+                  <div className="flex-1 grid place-items-center text-muted font-mono text-xs italic">
+                    Enter target word and sentences to run analysis.
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+
+            {/* Curated Insights Presets Gallery */}
+            <div className="space-y-6 pt-4">
+              <div className="border-b border-white/10 pb-2">
+                <h2 className="font-display text-lg tracking-wide">
+                  Explore Curated Linguistic Insights
+                </h2>
+                <p className="text-muted text-xs font-mono mt-0.5">
+                  Select a preset to load pre-calculated semantic drift metrics and map the vectors immediately.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {PRESETS.map((p) => {
+                  const drift = 1 - p.similarity;
+                  return (
+                    <div
+                      key={p.word + p.phenomenon}
+                      onClick={() => handleSelectPreset(p)}
+                      className="group relative rounded-xl border border-white/10 bg-white/[0.01] hover:bg-white/[0.04] p-4 transition-all duration-300 cursor-pointer flex flex-col justify-between hover:border-accent/40"
+                    >
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-baseline">
+                          <span className="font-mono text-sm font-bold text-foreground group-hover:text-accent transition-colors uppercase tracking-wider">
+                            {p.word}
+                          </span>
+                          <span className="text-[9px] uppercase tracking-wider bg-white/[0.06] text-muted px-2 py-0.5 rounded-full font-mono">
+                            {p.phenomenon}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-muted uppercase font-mono tracking-wide">
+                          {p.category}
+                        </div>
+                        <div className="text-xs text-foreground/50 space-y-1 pt-1 leading-relaxed">
+                          <p className="line-clamp-1"><span className="text-[9px] text-[#5dd5e8] font-bold font-mono">A:</span> {p.contextA}</p>
+                          <p className="line-clamp-1"><span className="text-[9px] text-[#ff5da2] font-bold font-mono">B:</span> {p.contextB}</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-white/5 space-y-1.5">
+                        <div className="flex justify-between text-[10px] font-mono uppercase text-muted">
+                          <span>Semantic Drift</span>
+                          <span className="font-bold text-accent-3">{drift.toFixed(3)}</span>
+                        </div>
+                        <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${drift * 100}%`,
+                              background: "linear-gradient(to right, #5dd5e8, #ff5da2)"
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </>
         )}
       </div>
     </main>
