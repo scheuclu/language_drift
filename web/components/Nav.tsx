@@ -7,6 +7,7 @@ const LINKS = [
   { href: "/", label: "intro" },
   { href: "/space", label: "explore" },
   { href: "/arith", label: "arith" },
+  { href: "/context-drift", label: "context" },
 ];
 
 export function Nav() {
