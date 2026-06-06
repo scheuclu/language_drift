@@ -30,7 +30,7 @@ Measure how English language usage shifts over time by training word embeddings 
 
 **1C — Encode to IDs** (per year, depends on 1B)
 - Read tokenized text files, map words to vocab IDs
-- Save as numpy int32 arrays (each ~4GB, loaded fully into RAM for training — feasible with 128GB)
+- Save as numpy int32 arrays (each ~4GB, loaded fully into RAM for training)
 
 ### Stage 2: PyTorch Word2Vec Training (per year, on DGX Spark GPU)
 
@@ -52,29 +52,33 @@ per-year training + alignment below (kept as legacy).
 
 **Output:** Save `center_embeddings.weight` as numpy array per year (~1-3 hours per year).
 
-### Stage 3: Drift (shared space — no alignment)
+### Stage 3: Drift & Frequency Analysis
 
+**Semantic Drift** (shared space — no alignment)
 With TWEC every year already shares one coordinate frame, so drift is measured
 directly (no Procrustes step).
-
-**Drift Metrics** (relative to `ANCHOR_YEAR` 2018)
 - Cosine distance from the 2018 vector, per word per year
 - Total drift (summed over the 11 non-anchor years), max, mean
-- Output as Parquet + the per-word web shards
 
-*Legacy:* `analysis/alignment.py` (orthogonal Procrustes, SVD of the
-cross-covariance, anchored to 2018) is retained but superseded by TWEC.
+**Frequency Drift**
+- Measure changes in relative frequency (tokens per billion) over time.
+- Distribution shift: The "fan" of word frequencies widening significantly after ChatGPT (2023+).
+
+**Output:** Parquet files in `models/drift/` and the per-word web shards.
 
 ### Stage 4: Web app + data hosting
 
-The interactive site is a **Next.js app in `web/`** (not the Streamlit `app.py`,
-which is just a FineWeb sample browser): scrollytelling landing, `/explore`
-constellation, `/ternary`, `/arith`, `/space` (UMAP), `/gallery`.
+The interactive site is a **Next.js app in `web/`**:
+- **Landing**: Scrollytelling experience featuring "Drift Stories" (curated shifts like *crypto*, *distancing*, *ai-slop*).
+- **`/explore`**: 3D Constellation view showing a word's nearest neighbors as they turn over year-by-year.
+- **`/space`**: 2D UMAP "galaxy" of 50K+ words. Features interactive colour axes (semantic poles) and movement heatmaps.
+- **`/llm`**: Ridgeline plot of the entire language's frequency distribution "tearing open" after 2022.
+- **`/arith`**: Word vector arithmetic (e.g., *king - man + woman = queen* across time).
+- **`/ternary`**: Triangle plot comparing a word's relative similarity to three anchors.
+- **`/gallery`**: Rankings of the most drifted words by frequency tier.
+- **`/w/[word]`**: Individual word dossier pages.
 
-`scripts/precompute_*.py` emit per-word shards; `scripts/pack_web_data.py` packs
-them into `vecs.bin` + `neighbors.bin` (+ offset index); everything is uploaded
-to **Vercel Blob** under `data/vN/` — NOT committed to git. The client
-range-fetches a single word's slice. See `web/README.md`.
+**Data hosting**: `scripts/precompute_*.py` emit per-word shards; `scripts/pack_web_data.py` packs them into binary blobs (`vecs.bin`, `neighbors.bin`, `space.bin`); everything is uploaded to **Vercel Blob** under `data/vN/` — NOT committed to git.
 
 ## Execution Order
 
@@ -88,7 +92,7 @@ range-fetches a single word's slice. See `web/README.md`.
 language_drift/
   config.py                      # Central constants (hyperparams, paths)
   main.py                        # Data loading script (streams FineWeb samples)
-  app.py                         # Streamlit dashboard
+  app.py                         # Streamlit dashboard (dev utility)
 
   pipeline/                      # Stage 1: Data
     snapshot_registry.py         # Year -> CC-MAIN snapshot mapping
@@ -101,29 +105,31 @@ language_drift/
     dataset.py                   # Map-style Dataset for skip-gram pairs (in-RAM)
     train.py                     # Training loop (GPU, LR decay, save)
 
-  analysis/                      # legacy Stage 3
-    alignment.py                 # orthogonal Procrustes (superseded by TWEC)
-    drift.py                     # cosine distance drift metrics
+  analysis/                      # Stage 3: Drift
+    alignment.py                 # Orthogonal Procrustes (legacy)
+    drift.py                     # Cosine distance + frequency metrics
 
   scripts/                       # CLI entry points
     run_data_pipeline.py         # --year 2014 | --all | --build-vocab | --encode
     twec_full.py                 # TWEC/compass trainer (current)
-    run_training.py              # legacy independent per-year trainer
-    run_analysis.py              # legacy Procrustes align + drift
-    precompute_*.py              # emit web data shards from models/aligned/
-    pack_web_data.py             # pack shards -> vecs.bin + neighbors.bin (+index)
+    precompute_web_data.py       # emit per-word neighbors/vectors for web
+    precompute_llm.py            # emit frequency distribution data for /llm
+    precompute_tsne.py           # compute 2D UMAP for /space
+    pack_web_data.py             # pack shards -> binary blobs (+ index)
+    check_anchor_drift.py        # verify stability of known anchor words
+    quality_check.py             # verify embedding quality (king/queen tests)
 
   data/                          # gitignored
     tokens/                      # tokenized text + numpy ID arrays per year
     vocab/                       # shared vocabulary
 
   models/                        # gitignored
-    embeddings_twec_full/        # TWEC compass output (current shipped embeddings)
-    embeddings/                  # legacy independent per-year embeddings
-    aligned/                     # web-export source (holds the TWEC vectors)
+    embeddings_twec_full/        # TWEC output (current shipped embeddings)
+    aligned/                     # symlink/copy of current embeddings for export
     drift/                       # drift result parquets
+    training_logs/               # loss/drift logs per run
 
-  web/                           # Next.js app; data hosted on Vercel Blob (not in git)
+  web/                           # Next.js app; data hosted on Vercel Blob
 ```
 
 ## Tech Stack
@@ -132,17 +138,10 @@ language_drift/
 - **datasets** (Hugging Face) — streaming access to FineWeb
 - **torch** — GPU-accelerated Word2Vec training
 - **numpy / pandas / pyarrow** — data processing and storage
-- **scipy** — SVD (legacy Procrustes) + Spearman eval
-- **Next.js / TypeScript / Vercel Blob** — interactive web app + data hosting
+- **scipy / umap-learn** — SVD + 2D projections
+- **Next.js / TypeScript / Tailwind CSS / Framer Motion** — interactive web app
+- **Vercel Blob** — hosting for large binary vector data
 - **streamlit** — `app.py` FineWeb sample browser (dev utility)
-- **tqdm** — progress bars
-
-## Estimated Resources
-
-- **Disk:** ~100 GB total (90 GB data, 6 GB models)
-- **Training time:** ~1-3 hours per year on DGX Spark, ~12-36 hours total
-- **RAM:** ~4 GB per year loaded into memory during training (128 GB available)
-- **GPU memory:** minimal (~480 MB for model)
 
 ## Verification
 
