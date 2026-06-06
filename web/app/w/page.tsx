@@ -73,6 +73,12 @@ export default function WordIndexPage() {
               </div>
             )}
           </div>
+          <Link
+            href="/compare"
+            className="inline-block mt-4 text-xs font-mono text-muted hover:text-accent transition-colors"
+          >
+            or compare two words →
+          </Link>
         </motion.div>
 
         {movers.length > 0 && (

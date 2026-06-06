@@ -11,12 +11,15 @@ export function WordSearch({
   className,
   large = false,
   autoFocus = false,
+  onPick,
 }: {
   words: string[];
   placeholder: string;
   className?: string;
   large?: boolean;
   autoFocus?: boolean;
+  // when provided, pick a word via this callback instead of navigating to /w
+  onPick?: (w: string) => void;
 }) {
   const router = useRouter();
   const [q, setQ] = useState("");
@@ -34,7 +37,15 @@ export function WordSearch({
     }
     return [...pre, ...con].slice(0, 8);
   }, [q, words]);
-  const go = (w: string) => router.push(`/w/${encodeURIComponent(w)}`);
+  const go = (w: string) => {
+    if (onPick) {
+      onPick(w);
+      setQ("");
+      setOpen(false);
+    } else {
+      router.push(`/w/${encodeURIComponent(w)}`);
+    }
+  };
   return (
     <div className={`relative w-full ${className ?? "sm:max-w-xs"}`}>
       <input
