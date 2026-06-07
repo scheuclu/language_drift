@@ -98,24 +98,44 @@ def main() -> None:
     if ANCHOR_YEAR not in aligned:
         print(f"  anchor {ANCHOR_YEAR} absent; skipping drift ranking")
         return
-    _long, summary = compute_contextual_drift(contextual_dir, vocab, base_year=ANCHOR_YEAR, min_count=a.min_count)
+    long_df, summary = compute_contextual_drift(contextual_dir, vocab, base_year=ANCHOR_YEAR, min_count=a.min_count)
     if summary.empty:
         print("  no words passed gating")
         return
     noise = float(summary["total_drift"].median())
-    print(f"  words ranked: {len(summary):,}   median total_drift (noise floor) = {noise:.3f}")
-    print("  top 15 drifters:")
+    print(f"  words ranked by noise-normalized z: {len(summary):,}   "
+          f"median total_drift (cosine noise floor) = {noise:.3f}")
+    print("  top 15 drifters (z-ranked):")
     for _, r in summary.head(15).iterrows():
-        print(f"    {r['word']:15s} total={r['total_drift']:.3f} max={r['max_drift']:.3f}@{int(r['max_drift_year'])} disp={r['dispersion']:.1f}")
-    present = summary[summary["word"].isin(DRIFTERS)]
+        print(f"    {r['word']:15s} z_sum={r['total_z']:6.1f} peak@{int(r['peak_year'])} "
+              f"cos_total={r['total_drift']:.3f} disp={r['dispersion']:.1f}")
+    present = summary[summary["word"].isin(DRIFTERS)].copy()
     if not present.empty:
         print("  known drifters present:")
-        for _, r in present.iterrows():
+        for _, r in present.sort_values("total_z", ascending=False).iterrows():
             snr = r["total_drift"] / noise if noise else float("nan")
-            print(f"    {r['word']:15s} total={r['total_drift']:.3f}  SNR vs noise floor = {snr:.1f}x")
+            print(f"    {r['word']:15s} z_sum={r['total_z']:6.1f} peak@{int(r['peak_year'])} "
+                  f"cos_total={r['total_drift']:.3f} (cos SNR {snr:.1f}x)")
     else:
         print("  (no known drifters in gated set — expected on the 2-year smoke; "
               "covid/zoom emerge only with 2020+ years in the full run)")
+
+    # Per-year trajectories: the clean, interpretable view. Drifters should be
+    # flat then spike at their event year; stable controls flat throughout.
+    drift_years = sorted(long_df["year"].unique())
+    print(f"\n== per-year drift vs {ANCHOR_YEAR} (cosine distance) — trajectories ==")
+    print("  " + "word".ljust(13) + "".join(f"{y:>8}" for y in drift_years))
+    for label, words in [("drifters", DRIFTERS), ("stable", STABLE)]:
+        print(f"  -- {label} --")
+        for w in words:
+            sub = long_df[long_df["word"] == w].set_index("year")
+            if sub.empty:
+                continue
+            cells = "".join(
+                f"{sub.loc[y, 'cosine_distance']:8.3f}" if y in sub.index else f"{'-':>8}"
+                for y in drift_years
+            )
+            print(f"  {w:13s}{cells}")
 
 
 if __name__ == "__main__":

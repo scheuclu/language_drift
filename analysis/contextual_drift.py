@@ -97,9 +97,33 @@ def compute_contextual_drift(
     if long_df.empty:
         return long_df, long_df
 
+    # Noise-normalized drift (a t-like statistic): how many sampling-error units
+    # the two yearly centroids sit apart. A centroid is a sample mean of `count`
+    # contextual vectors, so its squared standard error is dispersion/count
+    # (dispersion = E||h - c||^2 = trace of the within-word covariance); for the
+    # difference of two independent years the SE^2 adds. z = ||Δcentroid|| / SE
+    # therefore de-ranks high-variance / low-count words whose centroids merely
+    # wobble, while leaving genuine sense shifts (||Δ|| >> SE) high. Δ is taken
+    # on the *centered* centroids (anisotropy/global drift removed).
+    base_vec = aligned[base_year]
+    long_df["disp_base"] = disp[base_year][long_df["wid"].values]
+    long_df["disp_year"] = 0.0
+    long_df["euclid"] = 0.0
+    for y in aligned:
+        if y == base_year:
+            continue
+        m = (long_df["year"] == y).values
+        wids = long_df.loc[m, "wid"].values
+        long_df.loc[m, "disp_year"] = disp[y][wids]
+        long_df.loc[m, "euclid"] = np.linalg.norm(aligned[y][wids] - base_vec[wids], axis=1)
+    se = np.sqrt(long_df["disp_base"] / long_df["count_base"] + long_df["disp_year"] / long_df["count_year"])
+    long_df["z_score"] = (long_df["euclid"] / se.replace(0.0, np.nan)).fillna(0.0)
+
     summary = (
         long_df.groupby("word")
         .agg(
+            total_z=("z_score", "sum"),
+            max_z=("z_score", "max"),
             total_drift=("cosine_distance", "sum"),
             mean_drift=("cosine_distance", "mean"),
             max_drift=("cosine_distance", "max"),
@@ -107,15 +131,16 @@ def compute_contextual_drift(
         )
         .reset_index()
     )
-    max_rows = long_df.loc[long_df.groupby("word")["cosine_distance"].idxmax()][
+    peak_rows = long_df.loc[long_df.groupby("word")["z_score"].idxmax()][
         ["word", "year"]
-    ].rename(columns={"year": "max_drift_year"})
-    summary = summary.merge(max_rows, on="word")
+    ].rename(columns={"year": "peak_year"})
+    summary = summary.merge(peak_rows, on="word")
 
     mean_disp = _mean_dispersion(disp, counts, min_count)
     summary["dispersion"] = mean_disp[summary["word"].map(vocab).astype(int).values]
 
-    summary = summary.sort_values("total_drift", ascending=False).reset_index(drop=True)
+    # Rank by the noise-normalized score so high-variance words don't dominate.
+    summary = summary.sort_values("total_z", ascending=False).reset_index(drop=True)
     return long_df, summary
 
 
