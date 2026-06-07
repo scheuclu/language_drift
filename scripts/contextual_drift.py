@@ -5,14 +5,14 @@ Stages (mirrors the TWEC entry point's structure):
             finalize that year (writes models/contextual/{year}*.npy). Resumable.
   finalize  re-derive {year}*.npy from existing partial accumulators (cheap way
             to re-tune centering / PCA-removal without re-streaming).
-  all       stream (which finalizes each year on completion).
-
-The drift stage (parquet + summary + eval) lands in a follow-up PR alongside
-analysis/contextual_drift.py.
+  all       stream (finalizing each year on completion) + drift.
+  drift     compute cosine drift vs the anchor year from finalized centroids,
+            writing drift_vs_{anchor}.parquet + drift_summary.parquet.
 
     uv run python scripts/contextual_drift.py --smoke              # ~2 min code-path + resume check
     uv run python scripts/contextual_drift.py --stage stream       # full run (background, ~1.7 days)
     uv run python scripts/contextual_drift.py --stage finalize     # re-finalize from partials
+    uv run python scripts/contextual_drift.py --stage drift        # (re)compute drift artifacts
 """
 import argparse
 import hashlib
@@ -25,8 +25,10 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from config import (
+    ANCHOR_YEAR,
     CONTEXTUAL_DIR,
     CONTEXTUAL_LAYER,
+    CONTEXTUAL_MIN_COUNT,
     CONTEXTUAL_MODEL,
     CONTEXTUAL_POOLING,
     CONTEXTUAL_MAX_LEN,
@@ -37,6 +39,7 @@ from config import (
     VOCAB_DIR,
     YEARS,
 )
+from analysis.contextual_drift import run_drift
 from pipeline.contextual_aggregate import ContextualAccumulator
 from pipeline.contextual_finalize import finalize_year, load_partial
 from pipeline.contextual_model import ContextualEncoder
@@ -67,7 +70,7 @@ def main() -> None:
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--model", default=CONTEXTUAL_MODEL)
     ap.add_argument("--years", type=int, nargs="+", default=None)
-    ap.add_argument("--stage", choices=["stream", "finalize", "all"], default="all")
+    ap.add_argument("--stage", choices=["stream", "finalize", "drift", "all"], default="all")
     ap.add_argument("--target-tokens", type=int, default=None)
     a = ap.parse_args()
 
@@ -104,7 +107,7 @@ def main() -> None:
         encoder = ContextualEncoder(model_name=a.model, device=a.device)
         print(f"  encoder hidden_dim={encoder.hidden_dim}", flush=True)
 
-    for year in years:
+    for year in years if a.stage != "drift" else []:
         final_path = out_dir / f"{year}.npy"
 
         if a.stage == "finalize":
@@ -140,6 +143,9 @@ def main() -> None:
         del acc
         if a.device == "cuda":
             torch.cuda.empty_cache()
+
+    if a.stage in ("drift", "all"):
+        run_drift(out_dir, vocab, base_year=ANCHOR_YEAR, min_count=CONTEXTUAL_MIN_COUNT, years=years)
 
     print("DONE", flush=True)
 
